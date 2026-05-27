@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Environment variables (overrides for config.yaml)
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+target/
+
+# Test outputs
+allure-results/
+allure-report/
+playwright-report/
+test-results/
+test-results-parsed.json
+test-scenarios-temp.json
+
+# Performance test generated scripts
+performance_scripts/
+results/
+
+# Gatling results
+gatling-results/
+
+# IDE
+.vscode/
+.idea/
+
+# Unit test report
+playwright-report-unit/
+
+# OS
+.DS_Store
+Thumbs.db
+/.prettierignore
+/.prettierrc.json

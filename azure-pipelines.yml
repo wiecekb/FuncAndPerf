@@ -1,0 +1,101 @@
+trigger:
+
+parameters:
+  - name: TEST_FILE_PATH
+    type: string
+    displayName: 'Test File Path'
+    default: ' '
+  - name: TEST_CASE_STRING
+    type: string
+    displayName: 'Test Case String (JSON)'
+    default: ' '
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: Test
+    displayName: 'Run Playwright Tests'
+    jobs:
+      - job: RunTests
+        pool:
+          name: 'pool-dev'
+        displayName: 'Execute Test Suite'
+        steps:
+          - task: UseNode@1
+            inputs:
+              version: '24.15.0'
+              checkLatest: true
+            displayName: 'Install Node.js'
+
+          - script: wget https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.13%2B11/OpenJDK17U-jdk_x64_linux_hotspot_17.0.13_11.tar.gz -O $(Agent.TempDirectory)/jdk.tar.gz
+            displayName: 'DL JDK'
+          - task: JavaToolInstaller@0
+            inputs:
+              versionSpec: '17'
+              jdkArchitectureOption: 'x64'
+              jdkSourceOption: 'LocalDirectory'
+              jdkFile: '$(Agent.TempDirectory)/jdk.tar.gz'
+              jdkDestinationDirectory: '$(Agent.ToolsDirectory)/jdk17'
+
+          - script: |
+              npm install
+            displayName: 'Install Dependencies'
+            workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+          - script: |
+              echo '${{ parameters.TEST_CASE_STRING }}' > test-scenarios-temp.json
+              cat test-scenarios-temp.json | head -c 200
+            displayName: 'Save test scenarios to file'
+            condition: and(succeeded(), ne('${{ parameters.TEST_CASE_STRING }}', ' '))
+
+          - script: |
+              npm run test:ci
+            displayName: 'Run Tests'
+            workingDirectory: '$(System.DefaultWorkingDirectory)'
+            env:
+              calculator.url: $(calculator.url)
+              TEST_FILE_PATH: ${{ parameters.TEST_FILE_PATH }}
+              TEST_CASE_STRING: ${{ parameters.TEST_CASE_STRING }}
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '$(System.DefaultWorkingDirectory)/test-results/*.xml'
+              searchFolder: '$(System.DefaultWorkingDirectory)'
+            displayName: 'Publish Test Results'
+            condition: succeededOrFailed()
+
+          - task: PublishAllureReports@2
+            inputs:
+              reportDirectory: '$(System.DefaultWorkingDirectory)/allure-report'
+              testResultsFiles: 'results.xml'
+              testResultsDirectory: '$(System.DefaultWorkingDirectory)/test-results'
+            displayName: 'Publish Allure Reports'
+            condition: succeededOrFailed()
+
+          - script: |
+              npx tsx scripts/parse-test-results.ts
+            displayName: 'Parse Test Results for Azure Test Plans'
+            workingDirectory: '$(System.DefaultWorkingDirectory)'
+            condition: succeededOrFailed()
+
+          - script: |
+              npx tsx scripts/update-azure-test-results.ts
+            displayName: 'Update Azure Test Plans'
+            workingDirectory: '$(System.DefaultWorkingDirectory)'
+            env:
+              AZURE_DEVOPS_ORG_URL: $(AZURE_DEVOPS_ORG_URL)
+              AZURE_DEVOPS_PROJECT: $(AZURE_DEVOPS_PROJECT)
+              AZURE_DEVOPS_TEST_PLAN_ID: $(AZURE_DEVOPS_TEST_PLAN_ID)
+              AZURE_DEVOPS_TEST_SUITE_ID: $(AZURE_DEVOPS_TEST_SUITE_ID)
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+            condition: succeededOrFailed()
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: '$(System.DefaultWorkingDirectory)/allure-report'
+              artifactName: 'allure-report'
+              publishLocation: 'Container'
+            displayName: 'Publish Allure Report'
+            condition: succeededOrFailed()

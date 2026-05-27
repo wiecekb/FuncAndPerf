@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Calculator Step Definitions",
+  "description": "Step-type-specific schema for CALCULATOR steps with operation field",
+  "definitions": {
+    "CalcModifiedParameter": {
+      "type": "string",
+      "enum": [
+        "a",
+        "b"
+      ],
+      "description": "Modifiable parameters in calculator request payload"
+    },
+    "CalcValidatedParameter": {
+      "type": "string",
+      "enum": [
+        "result",
+        "operation"
+      ],
+      "description": "Validatable parameters in calculator response"
+    },
+    "CalcModifyRequest": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": [
+            "modifiedParameter",
+            "modifiedValue"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "modifiedParameter": {
+              "$ref": "#/definitions/CalcModifiedParameter"
+            },
+            "modifiedValue": {
+              "type": "string",
+              "description": "New value to set for the modified parameter"
+            }
+          }
+        },
+        {
+          "required": [
+            "jsonPath",
+            "modifiedValue"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "jsonPath": {
+              "type": "string",
+              "description": "JSON Path expression pointing to the field to modify (e.g. $.a, $.b)"
+            },
+            "modifiedValue": {
+              "type": "string",
+              "description": "New value to set at the given jsonPath"
+            }
+          }
+        }
+      ]
+    },
+    "CalcValidateResponse": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": [
+            "validatedParameter",
+            "validatedParameterValue"
+          ]
+        },
+        {
+          "required": [
+            "jsonPath",
+            "validatedParameterValue"
+          ]
+        }
+      ],
+      "properties": {
+        "validatedParameter": {
+          "$ref": "#/definitions/CalcValidatedParameter"
+        },
+        "validatedParameterValue": {
+          "type": "string",
+          "description": "Expected value of the validated parameter"
+        },
+        "validationType": {
+          "type": "string",
+          "enum": [
+            "equal",
+            "include"
+          ],
+          "description": "Type of validation: equal (exact match) or include (substring/element match)"
+        },
+        "jsonPath": {
+          "type": "string",
+          "description": "JSON Path expression to extract value from response"
+        },
+        "validatedParameterDescription": {
+          "type": "string",
+          "description": "Human-readable description of the validated parameter for reporting"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CalculatorAdditionalData": {
+      "type": "object",
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "add",
+            "multiply"
+          ],
+          "description": "Calculator operation: 'add' for addition, 'multiply' for multiplication"
+        }
+      },
+      "additionalProperties": true
+    },
+    "CalculatorStep": {
+      "type": "object",
+      "required": [
+        "returnCode",
+        "stepType",
+        "additionalData"
+      ],
+      "properties": {
+        "stepName": {
+          "type": "string",
+          "description": "Optional human-readable name for this step"
+        },
+        "stepType": {
+          "const": "CALCULATOR",
+          "description": "Calculator step type - use additionalData.operation to specify add or multiply"
+        },
+        "dataHandlerName": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_]+$",
+          "description": "Unique name for this step, used to reference its request/response data from other steps"
+        },
+        "returnCode": {
+          "type": "integer",
+          "description": "Expected HTTP return code for this step"
+        },
+        "modifyRequests": {
+          "type": "array",
+          "description": "List of modifications to apply to the calculator request payload",
+          "items": {
+            "$ref": "#/definitions/CalcModifyRequest"
+          }
+        },
+        "validateResponse": {
+          "type": "array",
+          "description": "List of response parameter validations for this step",
+          "items": {
+            "$ref": "#/definitions/CalcValidateResponse"
+          }
+        },
+        "additionalData": {
+          "$ref": "#/definitions/CalculatorAdditionalData",
+          "description": "Calculator-specific data including operation type"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

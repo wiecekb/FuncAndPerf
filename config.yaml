@@ -1,0 +1,6 @@
+calculator:
+  url: http://localhost:3000
+
+test:
+  file_path: tests/scenarios/calculator-demo.json
+  timeout_ms: 30000

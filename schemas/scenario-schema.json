@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Test Scenarios",
+  "description": "Schema for test scenario JSON files used in API testing",
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/Scenario"
+  },
+  "definitions": {
+    "Scenario": {
+      "type": "object",
+      "required": [
+        "scenarioName",
+        "steps"
+      ],
+      "properties": {
+        "scenarioName": {
+          "type": "string",
+          "description": "Human-readable name of the test scenario"
+        },
+        "azureTestCaseId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Azure Test Case ID for integration with Azure Test Plans"
+        },
+        "steps": {
+          "type": "array",
+          "description": "List of request-response steps to execute within this scenario",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/Step"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Step": {
+      "description": "A single step within a scenario. The stepType determines which sub-schema applies.",
+      "oneOf": [
+        {
+          "$ref": "test-modules/calculator/step-calculator.json#/definitions/CalculatorStep"
+        }
+      ]
+    }
+  }
+}
