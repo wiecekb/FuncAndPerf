@@ -85,3 +85,10 @@ export async function attachApiResponse(
         }
     });
 }
+
+export async function attachScreenshot(
+    name: string,
+    pngBuffer: Buffer
+): Promise<void> {
+    await attachment(name, pngBuffer, 'image/png');
+}

@@ -1,0 +1,124 @@
+[
+  {
+    "scenarioName": "Mixed demo: calculator + browser",
+    "steps": [
+      {
+        "stepName": "Calculator: 7 + 5 = 12",
+        "stepType": "CALCULATOR",
+        "dataHandlerName": "calcStep",
+        "returnCode": 200,
+        "additionalData": {
+          "operation": "add"
+        },
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "7"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "5"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "12"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "add"
+          }
+        ]
+      },
+      {
+        "stepName": "Browser: open docs and verify heading",
+        "stepType": "BROWSER",
+        "dataHandlerName": "browserStep",
+        "returnCode": 200,
+        "additionalData": {
+          "baseUrl": "https://playwright.dev",
+          "screenshot": {
+            "enabled": true,
+            "mode": "manualOnly",
+            "fullPage": false,
+            "namePrefix": "mixed-demo"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/"
+            },
+            {
+              "kind": "action",
+              "action": "click",
+              "selector": {
+                "kind": "role",
+                "role": "link",
+                "name": "Docs"
+              }
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/docs"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toContainText",
+              "selector": {
+                "kind": "css",
+                "value": "h1"
+              },
+              "expected": "Installation"
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "docsUrl"
+            },
+            {
+              "kind": "action",
+              "action": "screenshot"
+            }
+          ]
+        }
+      },
+      {
+        "stepName": "Browser: screenshot mode onStepEnd example",
+        "stepType": "BROWSER",
+        "returnCode": 200,
+        "additionalData": {
+          "baseUrl": "https://playwright.dev",
+          "screenshot": {
+            "enabled": true,
+            "mode": "onStepEnd",
+            "fullPage": true,
+            "namePrefix": "mixed-demo-step-end"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/docs/intro"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toBeVisible",
+              "selector": {
+                "kind": "css",
+                "value": "h1"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

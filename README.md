@@ -1,18 +1,15 @@
 # FunPerf — API Test Automation & Performance Testing Framework
 
-A flexible, scenario-driven API test automation and performance testing framework built on Playwright, k6, and Gatling.
+A flexible, scenario-driven test automation framework for both **API** and **frontend/browser** testing. Tests are configured via JSON files, allowing flexible test case management without modifying source code. It includes performance test generators for **k6**, **k6/browser**, and **Gatling**.
 
-## Description
-
-This project provides a framework for verifying API endpoints through JSON-defined scenarios. Tests are configured via JSON files, allowing flexible test case management without modifying source code. It includes performance test generators for both **k6** and **Gatling**.
-
-The **Calculator** module serves as a demo/test module showing how to add new step types to the framework.
+The **Calculator** module serves as a demo/test module. The **Browser** module demonstrates frontend UI testing with Playwright selectors, assertions, and configurable screenshots.
 
 ## Technologies
 
 - **Playwright** — test automation framework
 - **TypeScript** — programming language
 - **k6** — load testing (generated scripts)
+- **k6/browser** — browser load testing (generated scripts)
 - **Gatling** — load testing (generated TypeScript simulations)
 - **Allure Report** — test reporting
 - **Azure DevOps** — CI/CD and Test Plans integration
@@ -43,9 +40,8 @@ FunPerf/
 │   ├── common/               # Shared utilities
 │   ├── gatling/              # Gatling generator framework
 │   ├── k6/                   # k6 generator framework
-│   ├── mock/                 # Mock server
-│   ├── allure/               # Allure helpers
-│   └── utils/                # General utilities
+│   ├── mock/                # Mock server
+│   └── allure/              # Allure helpers
 ├── tests/                    # Test files
 │   ├── scenarios/            # JSON scenario files
 │   ├── unit/                 # Unit tests
@@ -58,6 +54,7 @@ FunPerf/
 - Node.js 18.x or later
 - npm or yarn
 - Java JDK 17+ (required for Allure report generation and Gatling performance tests)
+- k6/browser requires k6 0.0.0+ with browser support
 
 ## Installation
 
@@ -166,7 +163,7 @@ TEST_CASE_STRING='[{"scenarioName":"Test 1","steps":[]}]' npm run test:ci
 
 ## Performance Testing
 
-The project includes performance test generators for both **k6** and **Gatling**. Both generators read the same JSON scenario files from `tests/scenarios/` and produce executable performance test scripts.
+The project includes performance test generators for both **k6**, **k6/browser**, and **Gatling**. All generators read the same JSON scenario files from `tests/scenarios/` and produce executable performance test scripts.
 
 ### Gatling (TypeScript SDK)
 
@@ -187,11 +184,11 @@ npm run gatling:all
 
 | Variable | Default | Description |
 |---|---|---|
-| | `calculator.url` | `http://localhost:3000` | Calculator API base URL |
-| | `AUTH_TOKEN` | `''` | Authorization bearer token |
-| | `GATLING_USERS_PER_SEC` | `5` | Constant users per second |
-| | `GATLING_DURATION_SECONDS` | `60` | Test duration in seconds |
-| | `GATLING_SCENARIO_INDEX` | `-1` | Run a specific scenario by index (-1 = all) |
+| `calculator.url` | `http://localhost:3000` | Calculator API base URL |
+| `AUTH_TOKEN` | `''` | Authorization bearer token |
+| `GATLING_USERS_PER_SEC` | `5` | Constant users per second |
+| `GATLING_DURATION_SECONDS` | `60` | Test duration in seconds |
+| `GATLING_SCENARIO_INDEX` | `-1` | Run a specific scenario by index (-1 = all) |
 
 **Architecture:**
 
@@ -227,6 +224,48 @@ npm run k6:all
 ```
 
 The generated script is located at `performance_scripts/k6/performance-test.js`.
+
+### k6/browser
+
+Generates a JavaScript k6/browser script from scenario JSON files containing browser steps.
+
+```bash
+# Generate the browser script
+npm run k6:browser:generate
+
+# Run with k6/browser
+npm run k6:browser:run
+
+# Run with web dashboard
+npm run k6:browser:run:live
+
+# Generate and run together
+npm run k6:browser:all
+```
+
+**Configuration (environment variables):**
+
+| Variable | Default | Description |
+|---|---|---|
+| `K6_BROWSER_SCENARIO_INDEX` | `0` | Choose one generated scenario by index (0 = run all) |
+| `K6_BROWSER_VUS` | `1` | Number of VUs |
+| `K6_BROWSER_ITERATIONS` | `1` | Iterations count |
+| `K6_BROWSER_MAX_DURATION` | `10m` | Max scenario duration |
+| `K6_BROWSER_BASE_URL` | `http://localhost:3000` | Fallback base URL when step has no additionalData.baseUrl |
+| `K6_BROWSER_SCREENSHOTS` | `on` | Global screenshots switch: `on` (default) or `off` |
+
+**Architecture:**
+
+The k6/browser generator follows the same registry pattern as the k6 generator:
+
+- `src/k6/interface.ts` — `K6StepGenerator` interface
+- `src/k6/common.ts` — Shared utilities for JavaScript code generation
+- `src/k6/registry.ts` — Registry singleton
+- `src/test-modules/*/k6.ts` — Per-step-type generators
+- `scripts/generate-k6.ts` — Main generator script
+- `scripts/generate-k6-browser.ts` — Browser-specific generator script
+
+To add a new step type, implement `K6StepGenerator` and register it in `src/k6/registry.ts`.
 
 ## Adding a New Step Type
 

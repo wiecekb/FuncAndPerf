@@ -28,9 +28,11 @@ const scenarioSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, 'scenari
 
 // Load sub-schemas so AJV can resolve $ref references to them
 const calculatorSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, 'test-modules', 'calculator', 'step-calculator.json'), 'utf-8'));
+const browserSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, 'test-modules', 'browser', 'step-browser.json'), 'utf-8'));
 
 const ajv = new Ajv({allErrors: true});
 ajv.addSchema(calculatorSchema, 'test-modules/calculator/step-calculator.json');
+ajv.addSchema(browserSchema, 'test-modules/browser/step-browser.json');
 const validateScenario = ajv.compile(scenarioSchema);
 
 function validateScenariosSchema(data: unknown[], source: string): void {
