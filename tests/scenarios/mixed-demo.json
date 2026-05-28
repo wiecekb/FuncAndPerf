@@ -66,6 +66,11 @@
             },
             {
               "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/docs"
+            },
+            {
+              "kind": "assertion",
               "assertion": "toContainText",
               "selector": {
                 "kind": "css",

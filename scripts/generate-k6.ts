@@ -240,7 +240,7 @@ function generateK6Script(scenarios: Scenario[]): string {
         escapeJsString,
         (step: StepData): string => {
             const gen: K6StepGenerator | undefined = k6GeneratorRegistry.get(step.stepType);
-            return gen?.getEndpoint?.(step) || escapeJsString(`Unknown step type: ${step.stepType}`);
+            return gen?.getEndpoint?.(step) || `'${escapeJsString(`Unknown step type: ${step.stepType}`)}'`;
         }
     );
 

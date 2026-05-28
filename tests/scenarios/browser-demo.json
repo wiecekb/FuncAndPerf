@@ -37,6 +37,11 @@
             },
             {
               "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/docs/intro"
+            },
+            {
+              "kind": "assertion",
               "assertion": "toContainText",
               "selector": {
                 "kind": "css",
@@ -52,6 +57,121 @@
             {
               "kind": "action",
               "action": "screenshot"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "scenarioName": "Frontend demo - API page heading",
+    "steps": [
+      {
+        "stepName": "Open API docs and verify title",
+        "stepType": "BROWSER",
+        "returnCode": 200,
+        "dataHandlerName": "playwrightApi",
+        "additionalData": {
+          "baseUrl": "https://playwright.dev",
+          "screenshot": {
+            "enabled": true,
+            "mode": "manualOnly",
+            "fullPage": false,
+            "namePrefix": "browser-demo-api"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/docs/api/class-playwright"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/docs/api/class-playwright"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toContainText",
+              "selector": {
+                "kind": "css",
+                "value": "h1"
+              },
+              "expected": "Playwright"
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "apiDocsUrl"
+            },
+            {
+              "kind": "action",
+              "action": "screenshot"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "scenarioName": "Frontend demo - Multi-step with shared data",
+    "steps": [
+      {
+        "stepName": "Step 1: Open Playwright and capture Docs URL",
+        "stepType": "BROWSER",
+        "returnCode": 200,
+        "dataHandlerName": "stepOne",
+        "additionalData": {
+          "baseUrl": "https://playwright.dev",
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/"
+            },
+            {
+              "kind": "action",
+              "action": "click",
+              "selector": {
+                "kind": "role",
+                "role": "link",
+                "name": "Docs"
+              }
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "docsUrlFromStep1"
+            }
+          ]
+        }
+      },
+      {
+        "stepName": "Step 2: Reuse URL from step 1 on different baseUrl",
+        "stepType": "BROWSER",
+        "returnCode": 200,
+        "dataHandlerName": "stepTwo",
+        "additionalData": {
+          "baseUrl": "https://example.com",
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "${ctx.docsUrlFromStep1}"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "${ctx.docsUrlFromStep1}"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toContainText",
+              "selector": {
+                "kind": "css",
+                "value": "h1"
+              },
+              "expected": "Installation"
             }
           ]
         }
