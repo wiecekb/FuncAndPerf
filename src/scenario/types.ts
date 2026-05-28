@@ -1,3 +1,4 @@
 export enum ScenarioType {
-    CALCULATOR = 'CALCULATOR'
+    CALCULATOR = 'CALCULATOR',
+    BROWSER = 'BROWSER'
 }

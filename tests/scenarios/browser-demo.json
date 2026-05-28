@@ -1,0 +1,61 @@
+[
+  {
+    "scenarioName": "Frontend demo - Playwright selectors",
+    "steps": [
+      {
+        "stepName": "Open Playwright and validate search",
+        "stepType": "BROWSER",
+        "returnCode": 200,
+        "dataHandlerName": "playwrightHome",
+        "additionalData": {
+          "baseUrl": "https://playwright.dev",
+          "screenshot": {
+            "enabled": true,
+            "mode": "onStepEnd",
+            "fullPage": true,
+            "namePrefix": "browser-demo"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/"
+            },
+            {
+              "kind": "action",
+              "action": "click",
+              "selector": {
+                "kind": "role",
+                "role": "link",
+                "name": "Docs"
+              }
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toContainText",
+              "selector": {
+                "kind": "css",
+                "value": "h1"
+              },
+              "expected": "Installation"
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "docsUrl"
+            },
+            {
+              "kind": "action",
+              "action": "screenshot"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

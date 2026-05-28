@@ -1,6 +1,7 @@
 import {test, TestInfo} from '@playwright/test';
 import {hasStepAttachments, loadScenarios, Scenario, StepData, ScenarioData} from '../src/scenario/loader';
 import {executeCalcStep} from '../src/test-modules/calculator/generator';
+import {executeBrowserStep, storeBrowserStepDataIfNeeded} from '../src/test-modules/browser/generator';
 import {ScenarioType} from '../src/scenario/types';
 import {attachScenarioInfo} from '../src/allure/helpers';
 import {stepDataRegistry} from '../src/scenario/data/registry';
@@ -12,9 +13,11 @@ const stepHandlers: Record<string, (
     step: import('../src/scenario/loader').StepData,
     stepIndex: number,
     stepName: string,
-    request: import('@playwright/test').APIRequestContext
+    request: import('@playwright/test').APIRequestContext,
+    page: import('@playwright/test').Page
 ) => Promise<{ requestBody: Record<string, unknown>; responseBody: Record<string, unknown> }>> = {
-    [ScenarioType.CALCULATOR]: executeCalcStep
+    [ScenarioType.CALCULATOR]: async (step, stepIndex, stepName, request) => executeCalcStep(step, stepIndex, stepName, request),
+    [ScenarioType.BROWSER]: executeBrowserStep
 };
 
 test.describe('All Tests', (): void => {
@@ -29,7 +32,7 @@ test.describe('All Tests', (): void => {
 
         const testName = `${testNamePrefix} - ${scenario.scenarioName}`;
 
-        test(testName, async ({request}, testInfo: TestInfo):Promise<void> => {
+        test(testName, async ({request, page}, testInfo: TestInfo):Promise<void> => {
             testInfo.setTimeout(config.test.timeout_ms);
 
             stepDataRegistry.clear();
@@ -48,7 +51,7 @@ test.describe('All Tests', (): void => {
             for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
                 const step: StepData = steps[stepIndex];
                 const stepName: string = step.stepName || `Step ${stepIndex + 1}`;
-                const handler: (step: import('../src/scenario/loader').StepData, stepIndex: number, stepName: string, request: import('@playwright/test').APIRequestContext) => Promise<{
+                const handler: (step: import('../src/scenario/loader').StepData, stepIndex: number, stepName: string, request: import('@playwright/test').APIRequestContext, page: import('@playwright/test').Page) => Promise<{
                     requestBody: Record<string, unknown>;
                     responseBody: Record<string, unknown>
                 }> = stepHandlers[step.stepType];
@@ -86,9 +89,11 @@ test.describe('All Tests', (): void => {
                         }
                     );
 
-                    const result: { requestBody: Record<string, unknown>; responseBody: Record<string, unknown> } = await handler(step, stepIndex, stepName, request);
+                    const result: { requestBody: Record<string, unknown>; responseBody: Record<string, unknown> } = await handler(step, stepIndex, stepName, request, page);
 
-                    if (step.dataHandlerName) {
+                    if (step.stepType === ScenarioType.BROWSER) {
+                        storeBrowserStepDataIfNeeded(step, result);
+                    } else if (step.dataHandlerName) {
                         stepDataRegistry.set(step.dataHandlerName, {
                             requestBody: result.requestBody,
                             responseBody: result.responseBody
