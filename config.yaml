@@ -1,5 +1,7 @@
-calculator:
-  url: http://localhost:3000
+hosts:
+  frontendMain: https://playwright.dev
+  frontendDocs: https://playwright.dev
+  calcApi: http://localhost:3000
 
 test:
   file_path: tests/scenarios/calculator-demo.json

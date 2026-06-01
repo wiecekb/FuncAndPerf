@@ -2,9 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import Ajv from 'ajv';
 import {config} from '../config';
+import type {AppConfig} from '../config';
 import type {AddAttachment, ModifyRequest} from './modify';
 import type {BaseValidation} from '../common/validations';
-import {ScenarioType} from './types';
+import {ScenarioType, HostRef} from './types';
 
 export interface ScenarioData {
     scenarioName: string;
@@ -21,18 +22,32 @@ export interface StepData {
     addAttachments?: AddAttachment[];
     validateResponse?: BaseValidation[];
     additionalData?: Record<string, unknown>;
+    hostRef?: HostRef;
+}
+
+export function resolveHostRef(hostRef: string | undefined, appConfig: AppConfig): string | undefined {
+    if (!hostRef) {
+        return undefined;
+    }
+    const resolved = appConfig.hosts?.[hostRef];
+    if (!resolved) {
+        throw new Error(`Host alias '${hostRef}' not found in config.yaml hosts map`);
+    }
+    return resolved;
 }
 
 const schemasDir = path.resolve('schemas');
 const scenarioSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, 'scenario-schema.json'), 'utf-8'));
 
 // Load sub-schemas so AJV can resolve $ref references to them
-const calculatorSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, 'test-modules', 'calculator', 'step-calculator.json'), 'utf-8'));
-const browserSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, 'test-modules', 'browser', 'step-browser.json'), 'utf-8'));
+const calculatorSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, '..', 'src', 'test-modules', 'calculator', 'step-calculator.json'), 'utf-8'));
+const authorizedCalculatorSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, '..', 'src', 'test-modules', 'authorized-calculator', 'step-authorized-calculator.json'), 'utf-8'));
+const browserSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, '..', 'src', 'test-modules', 'browser', 'step-browser.json'), 'utf-8'));
 
 const ajv = new Ajv({allErrors: true});
-ajv.addSchema(calculatorSchema, 'test-modules/calculator/step-calculator.json');
-ajv.addSchema(browserSchema, 'test-modules/browser/step-browser.json');
+ajv.addSchema(calculatorSchema, '../src/test-modules/calculator/step-calculator.json');
+ajv.addSchema(authorizedCalculatorSchema, '../src/test-modules/authorized-calculator/step-authorized-calculator.json');
+ajv.addSchema(browserSchema, '../src/test-modules/browser/step-browser.json');
 const validateScenario = ajv.compile(scenarioSchema);
 
 function validateScenariosSchema(data: unknown[], source: string): void {

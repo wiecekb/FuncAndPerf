@@ -222,14 +222,31 @@ function generateScript(scenarios: Scenario[]): string {
     emit('}');
     emit('');
 
+    emit('function printScenarioBanner(index, name, stepCount) {');
+    emit("  console.log('');");
+    emit("  console.log('='.repeat(60));");
+    emit("  console.log('  FunPerf - k6 Browser Scenario');");
+    emit("  console.log('='.repeat(60));");
+    emit("  console.log('  Scenario Index: ' + index);");
+    emit("  console.log('  Scenario Name:  ' + name);");
+    emit("  console.log('  Total Steps:    ' + stepCount);");
+    emit("  console.log('='.repeat(60));");
+    emit("  console.log('');");
+    emit('}');
+    emit('');
+
     const fnNames: string[] = [];
+    const scenarioMetadata: { index: number; name: string; stepCount: number }[] = [];
 
     for (let i = 0; i < browserScenarios.length; i++) {
         const scenario = browserScenarios[i];
         const fnName = toValidFunctionName(`browser_${scenario.scenarioName}`);
         fnNames.push(fnName);
+        const browserStepCount = scenario.steps.filter((step) => step.stepType === ScenarioType.BROWSER).length;
+        scenarioMetadata.push({index: i + 1, name: scenario.scenarioName, stepCount: browserStepCount});
 
         emit(`async function ${fnName}() {`);
+        emit(`  printScenarioBanner(${i + 1}, '${escapeJsString(scenario.scenarioName)}', ${browserStepCount});`);
         emit('  const context = await browser.newContext();');
         emit('  const page = await context.newPage();');
         emit('  const ctx = globalThis.__ctx || {};');
@@ -267,10 +284,14 @@ function generateScript(scenarios: Scenario[]): string {
         emit("  console.warn('No BROWSER scenarios found.');");
     } else {
         emit(`  const scenarios = [${fnNames.join(', ')}];`);
+        emit(`  const scenarioMetadata = ${JSON.stringify(scenarioMetadata)};`);
         emit("  const index = parseInt(__ENV.K6_BROWSER_SCENARIO_INDEX || '0');");
         emit('  if (index > 0 && index <= scenarios.length) {');
         emit('    await scenarios[index - 1]();');
         emit('  } else {');
+        emit('    for (const meta of scenarioMetadata) {');
+        emit('      printScenarioBanner(meta.index, meta.name, meta.stepCount);');
+        emit('    }');
         emit('    for (const run of scenarios) {');
         emit('      await run();');
         emit('    }');
@@ -292,10 +313,25 @@ function main(): void {
 
         const scenariosDir = 'tests/scenarios';
         const scenarios = loadAllScenarios(scenariosDir);
-        const browserScenarios = scenarios.filter((scenario: Scenario) =>
-            scenario.steps.some((step: StepData) => step.stepType === ScenarioType.BROWSER)
-        );
-        const script = generateScript(scenarios);
+        const browserScenarios = scenarios.filter((scenario: Scenario) => {
+            // Check if scenario has at least one BROWSER step
+            const hasBrowserStep = scenario.steps.some((step: StepData) => step.stepType === ScenarioType.BROWSER);
+            if (!hasBrowserStep) {
+                console.log(`  ⚠️ Scenariusz "${scenario.scenarioName}" pominięty (brak stepów typu BROWSER)`);
+                return false;
+            }
+            
+            // Check if scenario has any non-BROWSER steps
+            const nonBrowserSteps = scenario.steps.filter((step: StepData) => step.stepType !== ScenarioType.BROWSER);
+            if (nonBrowserSteps.length > 0) {
+                console.log(`  ⚠️ Scenariusz "${scenario.scenarioName}" pominięty (mieszane typy stepów: ${nonBrowserSteps.length} step(s) nie jest typu BROWSER)`);
+                return false;
+            }
+            
+            // All steps are BROWSER
+            return true;
+        });
+        const script:string = generateScript(scenarios);
 
         const outDir = 'performance_scripts/k6';
         const outPath = `${outDir}/browser-performance-test.js`;
@@ -311,7 +347,7 @@ function main(): void {
         console.log('');
         console.log(`Browser scenarios available (${browserScenarios.length}):`);
         browserScenarios.forEach((scenario: Scenario, idx: number): void => {
-            const browserSteps = scenario.steps.filter((step: StepData) => step.stepType === ScenarioType.BROWSER).length;
+            const browserSteps:number = scenario.steps.filter((step: StepData):boolean => step.stepType === ScenarioType.BROWSER).length;
             console.log(`  [${idx + 1}] "${scenario.scenarioName}" (${browserSteps} browser step(s))`);
         });
     } catch (error) {

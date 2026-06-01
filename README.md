@@ -70,12 +70,24 @@ Configuration is in [`config.yaml`](config.yaml):
 calculator:
   url: http://localhost:3000
 
+hosts:
+  frontendMain: https://playwright.dev
+  frontendDocs: https://playwright.dev
+  calcApi: http://localhost:3000
+
 test:
   file_path: tests/scenarios/calculator-demo.json
   timeout_ms: 30000
 ```
 
 Environment variables can override YAML values (e.g. `calculator.url`, `TEST_FILE_PATH`, `TEST_TIMEOUT_MS`).
+
+Step-level host selection:
+
+- Use `hostRef` on a step (`CALCULATOR` and `BROWSER`) to select host alias from `hosts` map.
+- Relative browser paths (like `/docs`) and calculator endpoints are resolved as `hostname + path`.
+- Absolute URLs still work and bypass host composition.
+- Legacy `additionalData.baseUrl` for browser remains as fallback when `hostRef` is not provided.
 
 ### Mock Server
 
@@ -164,6 +176,29 @@ TEST_CASE_STRING='[{"scenarioName":"Test 1","steps":[]}]' npm run test:ci
 ## Performance Testing
 
 The project includes performance test generators for both **k6**, **k6/browser**, and **Gatling**. All generators read the same JSON scenario files from `tests/scenarios/` and produce executable performance test scripts.
+
+### Authorized Calculator Demo
+
+The repository now includes an OAuth2-like auth demo for an independent calculator module.
+
+- Scenario file: [`tests/scenarios/authorized-calculator-demo.json`](tests/scenarios/authorized-calculator-demo.json)
+- Demo credentials: [`tests/data/authorized-users.txt`](tests/data/authorized-users.txt)
+- Mock token endpoint: `POST /oauth/token`
+- Authorized endpoints: `/authorized/api/calc/add` and `/authorized/api/calc/multiply`
+
+The demo scenario is designed to:
+
+- pick a random user from the credentials file
+- reuse a cached token when it is still active
+- request a fresh token when the cached token is missing or expired
+- run calculator operations with `Authorization: Bearer <token>`
+
+Environment variables for the mock server:
+
+| Variable | Default | Description |
+|---|---|---|
+| `MOCK_USERS_FILE` | `tests/data/authorized-users.txt` | Path to the `username:password` credentials file |
+| `MOCK_TOKEN_TTL_SECONDS` | `3600` | Token lifetime in seconds |
 
 ### Gatling (TypeScript SDK)
 

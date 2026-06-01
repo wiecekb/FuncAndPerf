@@ -1,7 +1,3 @@
-import {config} from '../../config';
-
-export const DEFAULT_CALC_URL = config.calculator.url;
-
 export class CalcRequestBuilder {
     private _a: number = 0;
     private _b: number = 0;

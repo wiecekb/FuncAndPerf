@@ -40,10 +40,13 @@
       "description": "A single step within a scenario. The stepType determines which sub-schema applies.",
       "oneOf": [
         {
-          "$ref": "test-modules/calculator/step-calculator.json#/definitions/CalculatorStep"
+          "$ref": "../src/test-modules/calculator/step-calculator.json#/definitions/CalculatorStep"
         },
         {
-          "$ref": "test-modules/browser/step-browser.json#/definitions/BrowserStep"
+          "$ref": "../src/test-modules/authorized-calculator/step-authorized-calculator.json#/definitions/AuthorizedCalculatorStep"
+        },
+        {
+          "$ref": "../src/test-modules/browser/step-browser.json#/definitions/BrowserStep"
         }
       ]
     }

@@ -6,6 +6,9 @@ export interface K6GeneratorContext {
     declaredAttachments: Set<string>;
 
     stepVarName(stepIndex: number): string;
+
+    /** Tracks the current hostRef from the last step that declared one, for resolution by subsequent steps. */
+    currentHostRef?: string;
 }
 
 export interface DefaultPayloadResult {

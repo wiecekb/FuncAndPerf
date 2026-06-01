@@ -4,6 +4,7 @@
     "steps": [
       {
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "add"
         },
@@ -38,6 +39,7 @@
     "steps": [
       {
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "multiply"
         },
@@ -70,6 +72,7 @@
     "steps": [
       {
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "add"
         },
@@ -104,6 +107,7 @@
       {
         "stepName": "Add 3 + 5 = 8",
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "add"
         },
@@ -133,6 +137,7 @@
       {
         "stepName": "Multiply 8 * 2 = 16 using result from step 1",
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "multiply"
         },
@@ -168,6 +173,7 @@
       {
         "stepName": "Step 1: Add 10 + 20 = 30",
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "add"
         },
@@ -197,6 +203,7 @@
       {
         "stepName": "Step 2: Multiply 30 * 3 = 90",
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "multiply"
         },
@@ -228,6 +235,7 @@
       {
         "stepName": "Step 3: Add 90 + 10 = 100",
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "add"
         },
@@ -257,6 +265,7 @@
       {
         "stepName": "Step 4: Multiply 100 * 2 = 200",
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "multiply"
         },
@@ -287,6 +296,7 @@
       {
         "stepName": "Step 5: Add 200 + 5 = 205",
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "additionalData": {
           "operation": "add"
         },

@@ -1,9 +1,11 @@
-import {expect as pwExpect, Page} from '@playwright/test';
+import {expect as pwExpect, Locator, Page} from '@playwright/test';
 import type {StepData} from '../../scenario/loader';
 import type {BrowserAdditionalData, BrowserInstruction, BrowserSelector, BrowserScreenshotConfig} from './types';
 import {stepDataRegistry} from '../../scenario/data/registry';
 import {isReference, resolveReference} from '../../scenario/data/resolve';
 import {attachScreenshot} from '../../allure/helpers';
+import {config} from '../../config';
+import {resolveHostRef} from '../../scenario/loader';
 
 function resolveString(value?: string): string | undefined {
     if (!value) {
@@ -12,7 +14,7 @@ function resolveString(value?: string): string | undefined {
     return isReference(value) ? String(resolveReference(value)) : value;
 }
 
-function toLocator(page: Page, selector: BrowserSelector) {
+function toLocator(page: Page, selector: BrowserSelector):Locator {
     switch (selector.kind) {
         case 'role':
             return page.getByRole(selector.role as never, {name: selector.name, exact: selector.exact});
@@ -37,6 +39,15 @@ function parseAdditionalData(step: StepData): BrowserAdditionalData {
     return data;
 }
 
+function resolveBrowserUrl(target: string, step: StepData, additionalData: BrowserAdditionalData): string {
+    if (/^https?:\/\//.test(target)) {
+        return target;
+    }
+    const hostFromRef: string | undefined = resolveHostRef(step.hostRef, config);
+    const baseUrl: string | undefined = hostFromRef ?? additionalData.baseUrl;
+    return baseUrl ? `${baseUrl}${target}` : target;
+}
+
 function getScreenshotConfig(data: BrowserAdditionalData): Required<BrowserScreenshotConfig> {
     return {
         enabled: data.screenshot?.enabled ?? false,
@@ -51,7 +62,7 @@ async function captureAndAttachScreenshot(
     title: string,
     fullPage: boolean
 ): Promise<void> {
-    const screenshot = await page.screenshot({fullPage});
+    const screenshot: Buffer<ArrayBufferLike> = await page.screenshot({fullPage});
     await attachScreenshot(title, screenshot);
 }
 
@@ -65,19 +76,18 @@ export async function executeBrowserStep(
     if (!page) {
         throw new Error('BROWSER step requires Playwright page context');
     }
-    const additionalData = parseAdditionalData(step);
-    const screenshotConfig = getScreenshotConfig(additionalData);
+    const additionalData: BrowserAdditionalData = parseAdditionalData(step);
+    const screenshotConfig: Required<BrowserScreenshotConfig> = getScreenshotConfig(additionalData);
     const extractedValues: Record<string, unknown> = {};
-    const baseUrl = additionalData.baseUrl;
 
     for (let idx = 0; idx < additionalData.instructions.length; idx++) {
         const instruction = additionalData.instructions[idx] as BrowserInstruction;
         if (instruction.kind === 'action') {
             switch (instruction.action) {
                 case 'goto': {
-                    const target = resolveString(instruction.value);
+                    const target: string | undefined = resolveString(instruction.value);
                     if (!target) throw new Error(`Step ${stepIndex + 1} (${stepName}): goto requires value`);
-                    const url = baseUrl && !/^https?:\/\//.test(target) ? `${baseUrl}${target}` : target;
+                    const url: string = resolveBrowserUrl(target, step, additionalData);
                     await page.goto(url);
                     break;
                 }
@@ -118,7 +128,8 @@ export async function executeBrowserStep(
         if (instruction.kind === 'assertion') {
             switch (instruction.assertion) {
                 case 'toHaveURL': {
-                    const expectedUrl = resolveString(instruction.expected) ?? '';
+                    const expectedTarget: string = resolveString(instruction.expected) ?? '';
+                    const expectedUrl: string = resolveBrowserUrl(expectedTarget, step, additionalData);
                     try {
                         await pwExpect(page).toHaveURL(expectedUrl, {timeout: instruction.timeoutMs});
                     } catch (error) {

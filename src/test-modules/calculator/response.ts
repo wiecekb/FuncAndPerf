@@ -19,7 +19,7 @@ export class CalcResponse {
     }
 
     static fromJson(json: CalcResponseJson | CalcResponseJson[]): CalcResponse {
-        const normalized = Array.isArray(json) ? json[0] : json;
+        const normalized: CalcResponseJson = Array.isArray(json) ? json[0] : json;
         return new CalcResponse(normalized.result, normalized.operation);
     }
 

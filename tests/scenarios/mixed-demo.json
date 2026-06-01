@@ -5,6 +5,7 @@
       {
         "stepName": "Calculator: 7 + 5 = 12",
         "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
         "dataHandlerName": "calcStep",
         "returnCode": 200,
         "additionalData": {
@@ -34,6 +35,7 @@
       {
         "stepName": "Browser: open docs and verify heading",
         "stepType": "BROWSER",
+        "hostRef": "frontendMain",
         "dataHandlerName": "browserStep",
         "returnCode": 200,
         "additionalData": {
@@ -61,13 +63,13 @@
               "selector": {
                 "kind": "role",
                 "role": "link",
-                "name": "Docs"
+                "name": "API"
               }
             },
             {
               "kind": "assertion",
               "assertion": "toHaveURL",
-              "expected": "https://playwright.dev/docs"
+              "expected": "https://playwright.dev/docs/api/class-playwright"
             },
             {
               "kind": "assertion",
@@ -76,7 +78,7 @@
                 "kind": "css",
                 "value": "h1"
               },
-              "expected": "Installation"
+              "expected": "Playwright Library"
             },
             {
               "kind": "extract",
@@ -93,6 +95,7 @@
       {
         "stepName": "Browser: screenshot mode onStepEnd example",
         "stepType": "BROWSER",
+        "hostRef": "frontendMain",
         "returnCode": 200,
         "additionalData": {
           "baseUrl": "https://playwright.dev",

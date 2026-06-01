@@ -8,6 +8,7 @@ import {
     generateModification as generateCommonModification
 } from '../../gatling/common';
 import {OPERATION_TO_ENDPOINT} from './config';
+import {resolveCalcBaseExpr} from './resolve-host-ref';
 
 const VALIDATE_TO_JSON_PATH: Record<string, string> = {
     result: '$.result',
@@ -23,8 +24,8 @@ export class CalculatorGatlingGenerator implements GatlingStepGenerator {
 
     getEndpoint(step: StepData): string {
         const operation = step.additionalData?.operation as string | undefined;
-        const endpoint = OPERATION_TO_ENDPOINT[operation || ''] || '/api/calc/add';
-        return `\`\${CALC_BASE_URL}${endpoint}\``;
+        const endpoint: string = OPERATION_TO_ENDPOINT[operation || ''] || '/api/calc/add';
+        return '`' + resolveCalcBaseExpr(step) + endpoint + '`';
     }
 
     generateDefaultPayload(_step: StepData, _ctx: GatlingGeneratorContext): GatlingPayloadResult {
@@ -67,11 +68,11 @@ export class CalculatorGatlingGenerator implements GatlingStepGenerator {
         sessionFnParam: string,
         sessionFnBody: string[],
         step: StepData,
-        _ctx: GatlingGeneratorContext
+        ctx: GatlingGeneratorContext
     ): string[] {
         const operation = step.additionalData?.operation as string | undefined;
         const endpoint: string = OPERATION_TO_ENDPOINT[operation || ''] || '/api/calc/add';
-        const url = `\`\${CALC_BASE_URL}${endpoint}\``;
+        const url = `\`${resolveCalcBaseExpr(step, ctx)}${endpoint}\``;
         const stepName: string = escapeJsString(step.stepName || step.stepType);
         return [
             `http('${stepName}')`,

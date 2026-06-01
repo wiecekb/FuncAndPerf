@@ -1,5 +1,6 @@
 import type {GatlingStepGenerator} from './interface';
 import {CalculatorGatlingGenerator} from '../test-modules/calculator/gatling';
+import {AuthorizedCalculatorGatlingGenerator} from '../test-modules/authorized-calculator/gatling';
 
 class GatlingStepGeneratorRegistry {
     private generators: Map<string, GatlingStepGenerator> = new Map<string, GatlingStepGenerator>();
@@ -20,3 +21,4 @@ class GatlingStepGeneratorRegistry {
 export const gatlingGeneratorRegistry = new GatlingStepGeneratorRegistry();
 
 gatlingGeneratorRegistry.register(new CalculatorGatlingGenerator('CALCULATOR'));
+gatlingGeneratorRegistry.register(new AuthorizedCalculatorGatlingGenerator('AUTHORIZED_CALCULATOR'));

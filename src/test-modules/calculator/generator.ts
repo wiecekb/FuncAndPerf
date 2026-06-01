@@ -1,9 +1,10 @@
 import {APIResponse, test} from '@playwright/test';
 import {config} from '../../config';
-import type {StepData} from '../../scenario/loader';
+import {resolveHostRef, type StepData} from '../../scenario/loader';
 import type {ModifyRequest} from '../../scenario/modify';
 import {resolveModifyReferences} from '../../scenario/data/resolve';
 import {CalcResponse} from './response';
+import type {CalcResponseJson} from './types';
 import {type CalcValidateResponse, validateCalcApiResponse} from './validations';
 import {applyCalcJsonPathModifications, applyCalcModifications, splitCalcModifyRequests} from './modifications';
 import {CalcRequestBuilder} from './builder';
@@ -12,9 +13,39 @@ import {attachApiRequest, attachApiResponse} from '../../allure/helpers';
 
 import {OPERATION_TO_ENDPOINT} from './config';
 
-const CALC_BASE_URL: string = config.calculator.url;
-
 type RequestHeadersMap = Record<string, string>;
+
+let currentCalcHostRef: string | undefined;
+
+export function resetCalcHostRef(): void {
+    currentCalcHostRef = undefined;
+}
+
+function resolveCalcBaseUrl(step: StepData): string {
+    if (step.hostRef) {
+        currentCalcHostRef = step.hostRef;
+        const resolved: string | undefined = resolveHostRef(step.hostRef, config);
+        if (!resolved) {
+            throw new Error(`hostRef "${step.hostRef}" not found in config.yaml hosts. ` +
+                `Step "${step.stepName || step.stepType}" has an invalid hostRef.`);
+        }
+        return resolved;
+    }
+
+    // No hostRef on this step -> inherit from previous step
+    if (currentCalcHostRef) {
+        const resolved: string | undefined = resolveHostRef(currentCalcHostRef, config);
+        if (!resolved) {
+            throw new Error(`Previous hostRef "${currentCalcHostRef}" is no longer valid in config.yaml hosts.`);
+        }
+        return resolved;
+    }
+
+    throw new Error(
+        `No hostRef defined for step "${step.stepName || step.stepType}". ` +
+        'The first calculator step must have a hostRef set in config.yaml hosts.'
+    );
+}
 
 export async function executeCalcStep(
     step: StepData,
@@ -22,18 +53,13 @@ export async function executeCalcStep(
     stepName: string,
     request: import('@playwright/test').APIRequestContext
 ): Promise<{ requestBody: Record<string, unknown>; responseBody: Record<string, unknown> }> {
-    const apiUrl: string = CALC_BASE_URL;
+    const apiUrl: string = resolveCalcBaseUrl(step);
     const operation = step.additionalData?.operation as string | undefined;
     const endpoint: string = OPERATION_TO_ENDPOINT[operation || ''];
 
     if (!endpoint) {
         throw new Error(`Unsupported calculator operation: ${operation}`);
     }
-
-    if (!apiUrl) {
-        throw new Error('calculator.url is not configured (set in config.yaml or calculator.url env var)');
-    }
-
 
     const resolvedModifyRequests: ModifyRequest[] = step.modifyRequests
         ? resolveModifyReferences(step.modifyRequests)
@@ -73,50 +99,37 @@ export async function executeCalcStep(
         );
     });
 
-    const response: APIResponse = await request.fetch(fullUrl, {
-        method: 'POST',
-        headers,
-        data: requestBody
+    const response: APIResponse = await request.post(fullUrl, {
+        data: requestBody,
+        headers
     });
 
-    const responseText: string = await response.text();
+    const responseBody: Record<string, unknown> = await response.json();
 
-    let responseData: { result: number; operation: string } | null = null;
-    let isJson: boolean = true;
-    try {
-        responseData = JSON.parse(responseText);
-    } catch {
-        isJson = false;
-    }
-
-    const hasValidations: boolean = !!(step.validateResponse && step.validateResponse.length > 0);
-
-    if (!isJson && hasValidations) {
-        throw new Error(
-            `Step ${stepIndex + 1}: Response is not valid JSON, but scenario defines ` +
-            `${step.validateResponse!.length} validation(s). ` +
-            `Response starts with: ${responseText.substring(0, 200)}`
+    await test.step('Attach response details to Allure', async ():Promise<void> => {
+        await attachApiResponse(
+            `${stepName} - ${step.stepType} API`,
+            response.status(),
+            response.statusText(),
+            {'Content-Type': 'application/json'},
+            JSON.stringify(responseBody)
         );
-    }
+    });
 
-    await attachApiResponse(
-        `${stepName} - ${step.stepType} API`,
-        response.status(),
-        response.statusText(),
-        response.headers(),
-        responseText
-    );
+    const calcResponse = CalcResponse.fromJson(responseBody as unknown as CalcResponseJson);
+    await validateCalcApiResponse((step.validateResponse ?? []) as CalcValidateResponse[], calcResponse);
 
-    const expectedCode: number = step.returnCode;
-    await expectWithDescription(`Step ${stepIndex + 1}: Response status code validation`, response.status()).toBe(expectedCode);
+    const body: Record<string, unknown> = responseBody as Record<string, unknown>;
 
-    if (responseData && hasValidations) {
-        const apiResponse: CalcResponse = CalcResponse.fromJson(responseData as import('./types').CalcResponseJson);
-        await validateCalcApiResponse((step.validateResponse ?? []) as CalcValidateResponse[], apiResponse);
-    }
+    await test.step('Validate status code and response', async ():Promise<void> => {
+        await expectWithDescription(
+            `Expected status code ${step.returnCode}, but got ${response.status()}. Step: ${stepName}`,
+            response.status()
+        ).toBe(step.returnCode);
+    });
 
     return {
         requestBody,
-        responseBody: (responseData ?? {}) as Record<string, unknown>
+        responseBody: body
     };
 }

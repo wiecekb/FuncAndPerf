@@ -13,8 +13,6 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 
-const CALC_BASE_URL: string = config.calculator.url;
-
 function toValidFunctionName(index: number, name: string): string {
     let fn: string = name
         .replace(/[^a-zA-Z0-9_]/g, '_')
@@ -41,7 +39,7 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
     emit("import { http, status } from '@gatling.io/http';");
     emit('');
     emit('const AUTH_TOKEN = getEnvironmentVariable("AUTH_TOKEN") || "no-token";');
-    emit(`const CALC_BASE_URL = getEnvironmentVariable("calculator.url") || "${CALC_BASE_URL}";`);
+    emit(`const HOSTS = ${JSON.stringify(config.hosts || {})};`);
     emit('');
 
     // ── Preamble (attachments) ──
@@ -79,7 +77,7 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
         const supportedSteps: StepData[] = steps.filter((s: StepData) => gatlingGeneratorRegistry.has(s.stepType));
         if (supportedSteps.length === 0) {
             emit(`// Scenario ${si}: "${scenario.scenarioName}" — SKIPPED (no supported step types)`);
-            emit(`export function ${fnName}() { /* no supported steps */ }`);
+            emit(`export function ${fnName}() { return scenario('${escapeJsString(scenario.scenarioName)}'); }`);
             emit('');
             functionNames.push(fnName);
             continue;
@@ -100,9 +98,15 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
                 continue;
             }
 
+            // Track hostRef across steps in this scenario
+            if (step.hostRef) {
+                preambleCtx.currentHostRef = step.hostRef;
+            }
+
             const ctx: GatlingGeneratorContext = {
                 declaredAttachments: preambleCtx.declaredAttachments,
-                stepVarName: (i: number): string => `step${i}`
+                stepVarName: (i: number): string => `step${i}`,
+                currentHostRef: preambleCtx.currentHostRef
             };
 
             const payloadResult: GatlingPayloadResult = gen.generateDefaultPayload(step, ctx);
@@ -156,7 +160,6 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
                 }
             }
 
-
             const saveAsKey: string = `resBody${stepIdx}`;
             const httpLines: string[] = gen.generateHttpCall(sessionFnParam, sessionFnBody, step, ctx);
 
@@ -180,11 +183,9 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
             emit(`    )`);
             emit(`    .pause(1)`);
         }
-
         emit(`;`);
         emit('}');
         emit('');
-
         functionNames.push(fnName);
     }
 
@@ -196,7 +197,7 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
         escapeJsString,
         (step: StepData): string => {
             const gen: GatlingStepGenerator | undefined = gatlingGeneratorRegistry.get(step.stepType);
-            return gen?.getEndpoint?.(step) || escapeJsString(`Unknown step type: ${step.stepType}`);
+            return gen?.getEndpoint?.(step) || `'${escapeJsString(`Unknown step type: ${step.stepType}`)}'`;
         }
     );
 
@@ -263,7 +264,6 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
         emit("    console.log('');");
         emit('  }');
         emit('');
-
         emit(`  if (scenarioIndex === 0) {`);
         emit(`    setUp(`);
         for (let si: number = 0; si < scenarios.length; si++) {
@@ -323,11 +323,25 @@ function main(): void {
             const s: Scenario = scenarios[i];
             const stepCount: number = s.steps.length;
             const supportedCount: number = s.steps.filter((st: StepData): boolean => gatlingGeneratorRegistry.has(st.stepType)).length;
+            const skippedCount: number = stepCount - supportedCount;
+            
             if (supportedCount === 0) {
                 console.log(`  [${i + 1}] "${s.scenarioName}": skipped (${stepCount} step(s), no supported step types)`);
                 continue;
             }
-            console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s)`);
+            
+            // Log skipped steps if any
+            if (skippedCount > 0) {
+                const skippedSteps: string[] = s.steps
+                    .filter((st: StepData): boolean => !gatlingGeneratorRegistry.has(st.stepType))
+                    .map((st: StepData) => {
+                        const stepName = st.stepName || st.stepType;
+                        return `  - "${stepName}" (${st.stepType})`;
+                    });
+                console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s), ${skippedCount} skipped${skippedCount > 1 ? 's' : ''} (${skippedSteps.join(', ')})`);
+            } else {
+                console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s)`);
+            }
         }
     } catch (error) {
         console.error('Failed to generate Gatling simulation:', error instanceof Error ? error.message : String(error));

@@ -1,6 +1,7 @@
-import {test, TestInfo} from '@playwright/test';
+import {APIRequestContext, test, TestInfo} from '@playwright/test';
 import {hasStepAttachments, loadScenarios, Scenario, StepData, ScenarioData} from '../src/scenario/loader';
-import {executeCalcStep} from '../src/test-modules/calculator/generator';
+import {executeCalcStep, resetCalcHostRef} from '../src/test-modules/calculator/generator';
+import {executeAuthorizedCalcStep, resetAuthorizedCalcHostRef} from '../src/test-modules/authorized-calculator/generator';
 import {executeBrowserStep, storeBrowserStepDataIfNeeded} from '../src/test-modules/browser/generator';
 import {ScenarioType} from '../src/scenario/types';
 import {attachScenarioInfo} from '../src/allure/helpers';
@@ -16,17 +17,18 @@ const stepHandlers: Record<string, (
     request: import('@playwright/test').APIRequestContext,
     page: import('@playwright/test').Page
 ) => Promise<{ requestBody: Record<string, unknown>; responseBody: Record<string, unknown> }>> = {
-    [ScenarioType.CALCULATOR]: async (step, stepIndex, stepName, request) => executeCalcStep(step, stepIndex, stepName, request),
+    [ScenarioType.CALCULATOR]: async (step: StepData, stepIndex: number, stepName: string, request: APIRequestContext) => executeCalcStep(step, stepIndex, stepName, request),
+    [ScenarioType.AUTHORIZED_CALCULATOR]: async (step: StepData, stepIndex: number, stepName: string, request: APIRequestContext) => executeAuthorizedCalcStep(step, stepIndex, stepName, request),
     [ScenarioType.BROWSER]: executeBrowserStep
 };
 
 test.describe('All Tests', (): void => {
     test.beforeAll(async (): Promise<void> => {
-        const scenariosData: ScenarioData[] = scenarios.map(s => s.rawData);
+        const scenariosData: ScenarioData[] = scenarios.map((s: Scenario) => s.rawData);
         await attachScenarioInfo(scenariosData as unknown as Record<string, unknown>[], true);
     });
 
-    scenarios.forEach((scenario: Scenario) => {
+    scenarios.forEach((scenario: Scenario):void => {
         const steps: StepData[] = scenario.steps;
         const testNamePrefix = 'API';
 
@@ -36,6 +38,8 @@ test.describe('All Tests', (): void => {
             testInfo.setTimeout(config.test.timeout_ms);
 
             stepDataRegistry.clear();
+            resetCalcHostRef();
+            resetAuthorizedCalcHostRef();
 
             await test.step('Attach Scenario JSON', async ():Promise<void> => {
                 await attachScenarioInfo([scenario.rawData as unknown as Record<string, unknown>], false);
@@ -48,7 +52,7 @@ test.describe('All Tests', (): void => {
                 {type: 'parameter', description: JSON.stringify({name: 'stepsCount', value: String(steps.length)})}
             );
 
-            for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
+            for (let stepIndex:number = 0; stepIndex < steps.length; stepIndex++) {
                 const step: StepData = steps[stepIndex];
                 const stepName: string = step.stepName || `Step ${stepIndex + 1}`;
                 const handler: (step: import('../src/scenario/loader').StepData, stepIndex: number, stepName: string, request: import('@playwright/test').APIRequestContext, page: import('@playwright/test').Page) => Promise<{

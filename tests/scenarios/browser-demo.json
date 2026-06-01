@@ -5,10 +5,10 @@
       {
         "stepName": "Open Playwright and validate search",
         "stepType": "BROWSER",
+        "hostRef": "frontendMain",
         "returnCode": 200,
         "dataHandlerName": "playwrightHome",
         "additionalData": {
-          "baseUrl": "https://playwright.dev",
           "screenshot": {
             "enabled": true,
             "mode": "onStepEnd",
@@ -69,10 +69,10 @@
       {
         "stepName": "Open API docs and verify title",
         "stepType": "BROWSER",
+        "hostRef": "frontendMain",
         "returnCode": 200,
         "dataHandlerName": "playwrightApi",
         "additionalData": {
-          "baseUrl": "https://playwright.dev",
           "screenshot": {
             "enabled": true,
             "mode": "manualOnly",
@@ -119,10 +119,10 @@
       {
         "stepName": "Step 1: Open Playwright and capture Docs URL",
         "stepType": "BROWSER",
+        "hostRef": "frontendMain",
         "returnCode": 200,
         "dataHandlerName": "stepOne",
         "additionalData": {
-          "baseUrl": "https://playwright.dev",
           "instructions": [
             {
               "kind": "action",
@@ -149,10 +149,10 @@
       {
         "stepName": "Step 2: Reuse URL from step 1 on different baseUrl",
         "stepType": "BROWSER",
+        "hostRef": "frontendDocs",
         "returnCode": 200,
         "dataHandlerName": "stepTwo",
         "additionalData": {
-          "baseUrl": "https://example.com",
           "instructions": [
             {
               "kind": "action",

@@ -8,8 +8,8 @@ export enum CalcModifiedParameter {
     B = 'b'
 }
 
-modifierRegistry.register<CalcRequestBuilder>(CalcModifiedParameter.A, (b, v) => b.withA(parseInt(v, 10)));
-modifierRegistry.register<CalcRequestBuilder>(CalcModifiedParameter.B, (b, v) => b.withB(parseInt(v, 10)));
+modifierRegistry.register<CalcRequestBuilder>(CalcModifiedParameter.A, (b: CalcRequestBuilder, v: string) => b.withA(parseInt(v, 10)));
+modifierRegistry.register<CalcRequestBuilder>(CalcModifiedParameter.B, (b: CalcRequestBuilder, v: string) => b.withB(parseInt(v, 10)));
 
 export function applyCalcModifications(
     modifyRequests: ModifyRequest[],

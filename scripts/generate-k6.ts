@@ -12,8 +12,6 @@ import {
 } from './shared';
 import * as fs from 'fs';
 
-const CALC_BASE_URL: string = config.calculator.url;
-
 function toValidFunctionName(name: string): string {
     let fn: string = name
         .replace(/[^a-zA-Z0-9_]/g, '_')
@@ -51,7 +49,7 @@ function generateK6Script(scenarios: Scenario[]): string {
     emit('const totalRequests = new Counter(\'total_requests\');');
     emit('');
     emit("const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';");
-    emit(`const CALC_BASE_URL = __ENV['calculator.url'] || '${CALC_BASE_URL}';`);
+    emit(`const HOSTS = ${JSON.stringify(config.hosts || {})};`);
     emit('');
 
     // ── Options ──
@@ -104,6 +102,7 @@ function generateK6Script(scenarios: Scenario[]): string {
             emit(`// Scenario ${si}: "${scenario.scenarioName}" — SKIPPED (no supported step types)`);
             emit(`function ${fnName}() { /* no supported steps */ }`);
             emit('');
+            functionNames.push(fnName);
             continue;
         }
 
@@ -133,9 +132,15 @@ function generateK6Script(scenarios: Scenario[]): string {
             blockLines.push(`  // Step ${siStep}: ${step.stepName || step.stepType}`);
             blockLines.push(`  { // block scope for step ${siStep}`);
 
+            // Track hostRef across steps in this scenario
+            if (step.hostRef) {
+                preambleCtx.currentHostRef = step.hostRef;
+            }
+
             const {code: payloadCode} = gen.generateDefaultPayload(step, {
                 declaredAttachments: preambleCtx.declaredAttachments,
-                stepVarName: (i: number) => `step${i}`
+                stepVarName: (i: number) => `step${i}`,
+                currentHostRef: preambleCtx.currentHostRef
             });
 
             for (const line of payloadCode) {
@@ -176,7 +181,8 @@ function generateK6Script(scenarios: Scenario[]): string {
 
                     const modLines: string[] = gen.generateModification(mod, payloadVarName, step, {
                         declaredAttachments: preambleCtx.declaredAttachments,
-                        stepVarName: (i: number): string => `step${i}`
+                        stepVarName: (i: number): string => `step${i}`,
+                        currentHostRef: preambleCtx.currentHostRef
                     });
                     blockLines.push(...modLines.map(l => `    ${l}`));
                 }
@@ -186,7 +192,8 @@ function generateK6Script(scenarios: Scenario[]): string {
 
             const httpLines: string[] = gen.generateHttpCall(payloadVarName, step, {
                 declaredAttachments: preambleCtx.declaredAttachments,
-                stepVarName: (i: number): string => `step${i}`
+                stepVarName: (i: number): string => `step${i}`,
+                currentHostRef: preambleCtx.currentHostRef
             });
             for (const line of httpLines) {
                 const renamed: string = line
@@ -208,7 +215,8 @@ function generateK6Script(scenarios: Scenario[]): string {
                 for (const v of step.validateResponse) {
                     const checkLine: string | null = gen.generateValidationCheck(v, resVarName, step, {
                         declaredAttachments: preambleCtx.declaredAttachments,
-                        stepVarName: (i: number): string => `step${i}`
+                        stepVarName: (i: number): string => `step${i}`,
+                        currentHostRef: preambleCtx.currentHostRef
                     });
                     if (checkLine) checks.push(checkLine);
                 }
@@ -306,7 +314,7 @@ function generateK6Script(scenarios: Scenario[]): string {
         emit('  if (scenarioIndex === 0) {');
         emit('    // Run all scenarios');
         emit('    for (let i = 0; i < fns.length; i++) {');
-        emit(`      group('Scenario ' + SCENARIO_METADATA[i].index + ': ' + SCENARIO_METADATA[i].name, () => {`);
+        emit(`      group('Scenario ' + (i + 1) + ': ' + SCENARIO_METADATA[i].name, () => {`);
         emit('        fns[i]();');
         emit('      });');
         emit('    }');
@@ -350,11 +358,25 @@ function main(): void {
             const s: Scenario = scenarios[i];
             const stepCount: number = s.steps.length;
             const supportedCount: number = s.steps.filter((st: StepData): boolean => k6GeneratorRegistry.has(st.stepType)).length;
+            const skippedCount: number = stepCount - supportedCount;
+            
             if (supportedCount === 0) {
                 console.log(`  [${i + 1}] "${s.scenarioName}": skipped (${stepCount} step(s), no supported step types)`);
                 continue;
             }
-            console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s)`);
+            
+            // Log skipped steps if any
+            if (skippedCount > 0) {
+                const skippedSteps: string[] = s.steps
+                    .filter((st: StepData): boolean => !k6GeneratorRegistry.has(st.stepType))
+                    .map((st: StepData) => {
+                        const stepName = st.stepName || st.stepType;
+                        return `  - "${stepName}" (${st.stepType})`;
+                    });
+                console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s), ${skippedCount} skipped${skippedCount > 1 ? 's' : ''} (${skippedSteps.join(', ')})`);
+            } else {
+                console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s)`);
+            }
         }
     } catch (error) {
         console.error('Failed to generate k6 script:', error instanceof Error ? error.message : String(error));

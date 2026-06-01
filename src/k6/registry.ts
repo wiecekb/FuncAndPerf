@@ -1,5 +1,6 @@
 import type {K6StepGenerator} from './interface';
 import {CalculatorK6Generator} from '../test-modules/calculator/k6';
+import {AuthorizedCalculatorK6Generator} from '../test-modules/authorized-calculator/k6';
 
 class K6StepGeneratorRegistry {
     private generators: Map<string, K6StepGenerator> = new Map<string, K6StepGenerator>();
@@ -21,3 +22,4 @@ class K6StepGeneratorRegistry {
 export const k6GeneratorRegistry = new K6StepGeneratorRegistry();
 
 k6GeneratorRegistry.register(new CalculatorK6Generator('CALCULATOR'));
+k6GeneratorRegistry.register(new AuthorizedCalculatorK6Generator('AUTHORIZED_CALCULATOR'));

@@ -8,6 +8,7 @@ import {
     generateValidationCheck
 } from '../../k6/common';
 import {OPERATION_TO_ENDPOINT} from './config';
+import {resolveCalcBaseExpr} from './resolve-host-ref';
 
 const VALIDATE_TO_JSON_PATH: Record<string, string> = {
     result: '$.result',
@@ -24,7 +25,7 @@ export class CalculatorK6Generator implements K6StepGenerator {
     getEndpoint(step: StepData): string {
         const operation = step.additionalData?.operation as string | undefined;
         const endpoint: string = OPERATION_TO_ENDPOINT[operation || ''] || '/api/calc/add';
-        return '`${CALC_BASE_URL}' + endpoint + '`';
+        return '`' + resolveCalcBaseExpr(step) + endpoint + '`';
     }
 
     generateDefaultPayload(_step: StepData, _ctx: K6GeneratorContext): DefaultPayloadResult {
@@ -55,11 +56,11 @@ export class CalculatorK6Generator implements K6StepGenerator {
         return generateValidationCheck(v, VALIDATE_TO_JSON_PATH);
     }
 
-    generateHttpCall(payloadVarName: string, step: StepData, _ctx: K6GeneratorContext): string[] {
+    generateHttpCall(payloadVarName: string, step: StepData, ctx: K6GeneratorContext): string[] {
         const operation = step.additionalData?.operation as string | undefined;
         const endpoint = OPERATION_TO_ENDPOINT[operation || ''] || '/api/calc/add';
         const lines: string[] = [];
-        lines.push(`const url = \`\${CALC_BASE_URL}${endpoint}\`;`);
+        lines.push(`const url = \`${resolveCalcBaseExpr(step, ctx)}${endpoint}\`;`);
         lines.push('');
         lines.push(`const res = http.post(url, JSON.stringify(${payloadVarName}), {`);
         lines.push('  headers: {');
