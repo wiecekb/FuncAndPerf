@@ -1,0 +1,68 @@
+[
+  {
+    "scenarioName": "Authorized calculator add",
+    "steps": [
+      {
+        "stepType": "AUTHORIZED_CALCULATOR",
+        "hostRef": "calcApi",
+        "additionalData": {
+          "operation": "add"
+        },
+        "returnCode": 200,
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "10"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "5"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "15"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "add"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenarioName": "Authorized calculator multiply",
+    "steps": [
+      {
+        "stepType": "AUTHORIZED_CALCULATOR",
+        "hostRef": "calcApi",
+        "additionalData": {
+          "operation": "multiply"
+        },
+        "returnCode": 200,
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "3"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "4"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "12"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "multiply"
+          }
+        ]
+      }
+    ]
+  }
+]

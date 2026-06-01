@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Authorized Calculator Step Definitions",
+  "description": "Step-type-specific schema for AUTHORIZED_CALCULATOR steps with operation field",
+  "definitions": {
+    "AuthorizedCalcAdditionalData": {
+      "type": "object",
+      "required": ["operation"],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": ["add", "multiply"]
+        },
+        "accessToken": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "AuthorizedCalculatorStep": {
+      "type": "object",
+      "required": ["returnCode", "stepType", "additionalData"],
+      "properties": {
+        "stepName": {"type": "string"},
+        "hostRef": {"type": "string"},
+        "stepType": {"const": "AUTHORIZED_CALCULATOR"},
+        "dataHandlerName": {"type": "string"},
+        "returnCode": {"type": "integer"},
+        "modifyRequests": {"type": "array"},
+        "validateResponse": {"type": "array"},
+        "additionalData": {"$ref": "#/definitions/AuthorizedCalcAdditionalData"}
+      },
+      "additionalProperties": false
+    }
+  }
+}
