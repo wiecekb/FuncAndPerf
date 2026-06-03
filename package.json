@@ -20,7 +20,7 @@
     "k6:browser:generate": "npx tsx scripts/generate-k6-browser.ts",
     "k6:run": "K6_SCENARIO_INDEX=1 K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_OPEN=true k6 run --out web-dashboard performance_scripts/k6/performance-test.js",
     "k6:browser:run": "K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=results/k6-browser-dashboard.html k6 run --out web-dashboard performance_scripts/k6/browser-performance-test.js",
-    "k6:browser:run:live": "K6_BROWSER_MAX_DURATION=2m K6_BROWSER_VUS=2 K6_BROWSER_ITERATIONS=10 K6_SCENARIO_INDEX=3 K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_OPEN=true k6 run --out web-dashboard performance_scripts/k6/browser-performance-test.js",
+    "k6:browser:run:live": "K6_BROWSER_MAX_DURATION=10m K6_BROWSER_VUS=2 K6_BROWSER_ITERATIONS=500 K6_BROWSER_SCENARIO_INDEX=5 K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_OPEN=true k6 run --out web-dashboard performance_scripts/k6/browser-performance-test.js",
     "k6:run:json": "k6 run --out json=results/perf-ndjson.json --summary-export=results/perf-summary.json performance_scripts/k6/performance-test.js",
     "k6:dashboard": "k6 run --out web-dashboard performance_scripts/k6/performance-test.js",
     "k6:all": "npm run k6:generate && npm run k6:run:json",

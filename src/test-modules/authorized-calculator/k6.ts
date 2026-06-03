@@ -23,9 +23,10 @@ export class AuthorizedCalculatorK6Generator implements K6StepGenerator {
     }
 
     generateModification(mod: ModifyRequest, payloadVarName: string): string[] {
-        return generateCommonModification(mod, payloadVarName, (v: string): string => {
-            const numValue: number = parseInt(v, 10);
-            return isNaN(numValue) ? `'${escapeJsString(v)}'` : String(numValue);
+        return generateCommonModification(mod, payloadVarName, (v: unknown): string => {
+            const rawValue: string = typeof v === 'string' ? v : String(v);
+            const numValue: number = parseInt(rawValue, 10);
+            return isNaN(numValue) ? `'${escapeJsString(rawValue)}'` : String(numValue);
         });
     }
 

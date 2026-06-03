@@ -1,0 +1,165 @@
+[
+  {
+    "scenarioName": "Step instances - isolated calculator hostRef inheritance",
+    "steps": [
+      {
+        "stepName": "Primary calculator instance seeds hostRef",
+        "stepType": "CALCULATOR",
+        "stepInstanceName": "primaryCalc",
+        "hostRef": "calcApi",
+        "additionalData": {
+          "operation": "add"
+        },
+        "returnCode": 200,
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "1"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "2"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "3"
+          }
+        ]
+      },
+      {
+        "stepName": "Secondary calculator instance seeds its own hostRef",
+        "stepType": "CALCULATOR",
+        "stepInstanceName": "secondaryCalc",
+        "hostRef": "calcApi",
+        "additionalData": {
+          "operation": "multiply"
+        },
+        "returnCode": 200,
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "3"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "4"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "12"
+          }
+        ]
+      },
+      {
+        "stepName": "Primary calculator instance reuses primary hostRef",
+        "stepType": "CALCULATOR",
+        "stepInstanceName": "primaryCalc",
+        "additionalData": {
+          "operation": "add"
+        },
+        "returnCode": 200,
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "5"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "6"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "11"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenarioName": "Step instances - isolated browser sessions with screenshots",
+    "steps": [
+      {
+        "stepName": "Browser A opens docs",
+        "stepType": "BROWSER",
+        "stepInstanceName": "browserA",
+        "hostRef": "frontendMain",
+        "returnCode": 200,
+        "additionalData": {
+          "screenshot": {
+            "enabled": true,
+            "mode": "onStepEnd",
+            "fullPage": false,
+            "namePrefix": "browser-instance-demo"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/docs/intro"
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "browserAUrl"
+            }
+          ]
+        }
+      },
+      {
+        "stepName": "Browser B opens API page",
+        "stepType": "BROWSER",
+        "stepInstanceName": "browserB",
+        "hostRef": "frontendMain",
+        "returnCode": 200,
+        "additionalData": {
+          "screenshot": {
+            "enabled": true,
+            "mode": "onStepEnd",
+            "fullPage": false,
+            "namePrefix": "browser-instance-demo"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/docs/api/class-playwright"
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "browserBUrl"
+            }
+          ]
+        }
+      },
+      {
+        "stepName": "Browser A still has docs session",
+        "stepType": "BROWSER",
+        "stepInstanceName": "browserA",
+        "hostRef": "frontendMain",
+        "returnCode": 200,
+        "additionalData": {
+          "screenshot": {
+            "enabled": true,
+            "mode": "onStepEnd",
+            "fullPage": false,
+            "namePrefix": "browser-instance-demo"
+          },
+          "instructions": [
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/docs/intro"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

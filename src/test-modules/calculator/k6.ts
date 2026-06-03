@@ -41,9 +41,10 @@ export class CalculatorK6Generator implements K6StepGenerator {
         _step: StepData,
         _ctx: K6GeneratorContext
     ): string[] {
-        return generateCommonModification(mod, payloadVarName, (v) => {
-            const numValue: number = parseInt(v, 10);
-            return isNaN(numValue) ? `'${escapeJsString(v)}'` : String(numValue);
+        return generateCommonModification(mod, payloadVarName, (v: unknown) => {
+            const rawValue: string = typeof v === 'string' ? v : String(v);
+            const numValue: number = parseInt(rawValue, 10);
+            return isNaN(numValue) ? `'${escapeJsString(rawValue)}'` : String(numValue);
         });
     }
 

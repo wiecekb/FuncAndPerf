@@ -12,6 +12,7 @@ import {
 } from './shared';
 import * as fs from 'fs';
 import * as path from 'path';
+import {getStepInstanceKey} from '../src/scenario/instances';
 
 function toValidFunctionName(index: number, name: string): string {
     let fn: string = name
@@ -45,7 +46,8 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
     // ── Preamble (attachments) ──
     const preambleCtx: GatlingGeneratorContext = {
         declaredAttachments: new Set(),
-        stepVarName: (i: number): string => `step${i}`
+        stepVarName: (i: number): string => `step${i}`,
+        stepInstanceHostRefs: new Map<string, string>()
     };
     const preambleLines: string[] = [];
     for (const scenario of scenarios) {
@@ -101,12 +103,14 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
             // Track hostRef across steps in this scenario
             if (step.hostRef) {
                 preambleCtx.currentHostRef = step.hostRef;
+                preambleCtx.stepInstanceHostRefs?.set(getStepInstanceKey(step), step.hostRef);
             }
 
             const ctx: GatlingGeneratorContext = {
                 declaredAttachments: preambleCtx.declaredAttachments,
                 stepVarName: (i: number): string => `step${i}`,
-                currentHostRef: preambleCtx.currentHostRef
+                currentHostRef: preambleCtx.currentHostRef,
+                stepInstanceHostRefs: preambleCtx.stepInstanceHostRefs
             };
 
             const payloadResult: GatlingPayloadResult = gen.generateDefaultPayload(step, ctx);
@@ -124,9 +128,9 @@ function generateGatlingSimulation(scenarios: Scenario[]): string {
 
             if (step.modifyRequests) {
                 for (const mod of step.modifyRequests) {
-                    let modValue: string = mod.modifiedValue;
+                    let modValue: unknown = mod.modifiedValue;
 
-                    if (isStepDataReference(modValue)) {
+                    if (typeof modValue === 'string' && isStepDataReference(modValue)) {
                         const ref: {
                             dataHandlerName: string;
                             jsonPath: string

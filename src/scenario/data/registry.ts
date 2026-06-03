@@ -1,6 +1,5 @@
 export interface StepDataRecord {
-    requestBody: Record<string, unknown>;
-    responseBody: Record<string, unknown>;
+    sources: Record<string, unknown>;
 }
 
 class StepDataRegistry {

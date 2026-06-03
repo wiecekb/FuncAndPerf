@@ -10,20 +10,18 @@ import {applyCalcJsonPathModifications, applyCalcModifications, splitCalcModifyR
 import {CalcRequestBuilder} from './builder';
 import {expectWithDescription} from '../../utils/logging-expect';
 import {attachApiRequest, attachApiResponse} from '../../allure/helpers';
+import type {ScenarioExecutionContext} from '../../scenario/execution-context';
 
 import {OPERATION_TO_ENDPOINT} from './config';
 
 type RequestHeadersMap = Record<string, string>;
 
-let currentCalcHostRef: string | undefined;
-
 export function resetCalcHostRef(): void {
-    currentCalcHostRef = undefined;
 }
 
-function resolveCalcBaseUrl(step: StepData): string {
+function resolveCalcBaseUrl(step: StepData, executionContext?: ScenarioExecutionContext): string {
     if (step.hostRef) {
-        currentCalcHostRef = step.hostRef;
+        executionContext?.setCurrentHostRef(step, step.hostRef);
         const resolved: string | undefined = resolveHostRef(step.hostRef, config);
         if (!resolved) {
             throw new Error(`hostRef "${step.hostRef}" not found in config.yaml hosts. ` +
@@ -32,11 +30,11 @@ function resolveCalcBaseUrl(step: StepData): string {
         return resolved;
     }
 
-    // No hostRef on this step -> inherit from previous step
-    if (currentCalcHostRef) {
-        const resolved: string | undefined = resolveHostRef(currentCalcHostRef, config);
+    const currentHostRef: string | undefined = executionContext?.getCurrentHostRef(step);
+    if (currentHostRef) {
+        const resolved: string | undefined = resolveHostRef(currentHostRef, config);
         if (!resolved) {
-            throw new Error(`Previous hostRef "${currentCalcHostRef}" is no longer valid in config.yaml hosts.`);
+            throw new Error(`Previous hostRef "${currentHostRef}" is no longer valid in config.yaml hosts.`);
         }
         return resolved;
     }
@@ -51,9 +49,10 @@ export async function executeCalcStep(
     step: StepData,
     stepIndex: number,
     stepName: string,
-    request: import('@playwright/test').APIRequestContext
+    request: import('@playwright/test').APIRequestContext,
+    executionContext?: ScenarioExecutionContext
 ): Promise<{ requestBody: Record<string, unknown>; responseBody: Record<string, unknown> }> {
-    const apiUrl: string = resolveCalcBaseUrl(step);
+    const apiUrl: string = resolveCalcBaseUrl(step, executionContext);
     const operation = step.additionalData?.operation as string | undefined;
     const endpoint: string = OPERATION_TO_ENDPOINT[operation || ''];
 
@@ -116,7 +115,7 @@ export async function executeCalcStep(
         );
     });
 
-    const calcResponse = CalcResponse.fromJson(responseBody as unknown as CalcResponseJson);
+    const calcResponse:CalcResponse = CalcResponse.fromJson(responseBody as unknown as CalcResponseJson);
     await validateCalcApiResponse((step.validateResponse ?? []) as CalcValidateResponse[], calcResponse);
 
     const body: Record<string, unknown> = responseBody as Record<string, unknown>;

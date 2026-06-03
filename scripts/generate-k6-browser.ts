@@ -3,6 +3,7 @@ import {ScenarioType} from '../src/scenario/types';
 import {loadAllScenarios} from './shared';
 import type {BrowserAdditionalData, BrowserInstruction, BrowserSelector} from '../src/test-modules/browser/types';
 import * as fs from 'fs';
+import {getStepInstanceName} from '../src/scenario/instances';
 
 function printHelp(): void {
     console.log('k6/browser generator help');
@@ -164,7 +165,8 @@ function generateInstructionLines(instruction: BrowserInstruction, stepName: str
 
 function generateScript(scenarios: Scenario[]): string {
     const browserScenarios: Scenario[] = scenarios.filter((scenario: Scenario) =>
-        scenario.steps.some((step: StepData) => step.stepType === ScenarioType.BROWSER)
+        scenario.steps.some((step: StepData) => step.stepType === ScenarioType.BROWSER) &&
+        scenario.steps.every((step: StepData) => step.stepType === ScenarioType.BROWSER)
     );
 
     const lines: string[] = [];
@@ -247,34 +249,45 @@ function generateScript(scenarios: Scenario[]): string {
 
         emit(`async function ${fnName}() {`);
         emit(`  printScenarioBanner(${i + 1}, '${escapeJsString(scenario.scenarioName)}', ${browserStepCount});`);
-        emit('  const context = await browser.newContext();');
-        emit('  const page = await context.newPage();');
+        emit('  const pageInstances = {};');
+        emit('  const browserContext = await browser.newContext();');
+        emit('  async function getPageForStepInstance(instanceName) {');
+        emit('    if (pageInstances[instanceName]) return pageInstances[instanceName].page;');
+        emit('    const page = await browserContext.newPage();');
+        emit('    pageInstances[instanceName] = { page };');
+        emit('    return page;');
+        emit('  }');
         emit('  const ctx = globalThis.__ctx || {};');
         emit('  globalThis.__ctx = ctx;');
-        emit('');
+        emit('  try {');
 
         for (let s = 0; s < scenario.steps.length; s++) {
             const step = scenario.steps[s];
             if (step.stepType !== ScenarioType.BROWSER) continue;
             const stepName = step.stepName || `Step ${s + 1}`;
+            const stepInstanceName = getStepInstanceName(step);
             const additionalData = step.additionalData as BrowserAdditionalData | undefined;
             if (!additionalData?.instructions) continue;
 
-            emit(`  console.log('Step: ${escapeJsString(stepName)}');`);
+            emit('    {');
+            emit(`      console.log('Step: ${escapeJsString(stepName)} [${escapeJsString(stepInstanceName)}]');`);
+            emit(`      const page = await getPageForStepInstance('${escapeJsString(stepInstanceName)}');`);
             const stepBaseUrlVarName = `currentStepBaseUrl_${s}`;
-            emit(`  const ${stepBaseUrlVarName} = ${additionalData.baseUrl ? `'${escapeJsString(additionalData.baseUrl)}'` : 'undefined'};`);
+            emit(`      const ${stepBaseUrlVarName} = ${additionalData.baseUrl ? `'${escapeJsString(additionalData.baseUrl)}'` : 'undefined'};`);
             for (let ii = 0; ii < additionalData.instructions.length; ii++) {
                 const instruction = additionalData.instructions[ii] as BrowserInstruction;
                 const generated = generateInstructionLines(instruction, stepName, s, stepBaseUrlVarName);
                 for (const line of generated) {
-                    emit(`    ${line}`);
+                    emit(`      ${line}`);
                 }
             }
+            emit('    }');
             emit('');
         }
 
-        emit('  await page.close();');
-        emit('  await context.close();');
+        emit('  } finally {');
+        emit('    await browserContext.close();');
+        emit('  }');
         emit('}');
         emit('');
     }

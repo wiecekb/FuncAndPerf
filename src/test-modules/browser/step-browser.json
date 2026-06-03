@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "../src/test-modules/browser/step-browser.json",
   "title": "Browser Step Definitions",
   "description": "Step-type-specific schema for BROWSER functional UI steps",
   "definitions": {
@@ -130,6 +131,11 @@
       "required": ["returnCode", "stepType", "additionalData"],
       "properties": {
         "stepName": { "type": "string" },
+        "stepInstanceName": {
+          "type": "string",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_-]*$",
+          "description": "Optional logical instance name for this stepType. Steps with the same stepType and stepInstanceName share browser page/context state. Missing value uses the default instance."
+        },
         "hostRef": {
           "type": "string",
           "description": "Reference to a host alias defined in config.yaml hosts map"

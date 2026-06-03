@@ -24,7 +24,7 @@ export function setNestedValueCode(objVar: string, path: string, formattedValue:
 export function generateModification(
     mod: ModifyRequest,
     payloadVarName: string,
-    formatValue: (value: string) => string,
+    formatValue: (value: unknown) => string,
     paramToPath?: Record<string, string>
 ): string[] {
     if ('jsonPath' in mod) {

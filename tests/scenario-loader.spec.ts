@@ -1,4 +1,4 @@
-import {APIRequestContext, test, TestInfo} from '@playwright/test';
+import {APIRequestContext, Browser, Page, test, TestInfo} from '@playwright/test';
 import {hasStepAttachments, loadScenarios, Scenario, StepData, ScenarioData} from '../src/scenario/loader';
 import {executeCalcStep, resetCalcHostRef} from '../src/test-modules/calculator/generator';
 import {executeAuthorizedCalcStep, resetAuthorizedCalcHostRef} from '../src/test-modules/authorized-calculator/generator';
@@ -7,6 +7,8 @@ import {ScenarioType} from '../src/scenario/types';
 import {attachScenarioInfo} from '../src/allure/helpers';
 import {stepDataRegistry} from '../src/scenario/data/registry';
 import {config} from '../src/config';
+import {ScenarioExecutionContext} from '../src/scenario/execution-context';
+import {getStepInstanceName} from '../src/scenario/instances';
 
 const scenarios: Scenario[] = loadScenarios();
 
@@ -15,10 +17,11 @@ const stepHandlers: Record<string, (
     stepIndex: number,
     stepName: string,
     request: import('@playwright/test').APIRequestContext,
-    page: import('@playwright/test').Page
+    page: import('@playwright/test').Page,
+    executionContext: ScenarioExecutionContext
 ) => Promise<{ requestBody: Record<string, unknown>; responseBody: Record<string, unknown> }>> = {
-    [ScenarioType.CALCULATOR]: async (step: StepData, stepIndex: number, stepName: string, request: APIRequestContext) => executeCalcStep(step, stepIndex, stepName, request),
-    [ScenarioType.AUTHORIZED_CALCULATOR]: async (step: StepData, stepIndex: number, stepName: string, request: APIRequestContext) => executeAuthorizedCalcStep(step, stepIndex, stepName, request),
+    [ScenarioType.CALCULATOR]: async (step: StepData, stepIndex: number, stepName: string, request: APIRequestContext, _page: Page, executionContext: ScenarioExecutionContext) => executeCalcStep(step, stepIndex, stepName, request, executionContext),
+    [ScenarioType.AUTHORIZED_CALCULATOR]: async (step: StepData, stepIndex: number, stepName: string, request: APIRequestContext, _page: Page, executionContext: ScenarioExecutionContext) => executeAuthorizedCalcStep(step, stepIndex, stepName, request, executionContext),
     [ScenarioType.BROWSER]: executeBrowserStep
 };
 
@@ -34,76 +37,90 @@ test.describe('All Tests', (): void => {
 
         const testName = `${testNamePrefix} - ${scenario.scenarioName}`;
 
-        test(testName, async ({request, page}, testInfo: TestInfo):Promise<void> => {
+        test(testName, async ({request, page, browser}: { request: APIRequestContext; page: Page; browser: Browser }, testInfo: TestInfo):Promise<void> => {
             testInfo.setTimeout(config.test.timeout_ms);
 
             stepDataRegistry.clear();
             resetCalcHostRef();
             resetAuthorizedCalcHostRef();
+            const executionContext = new ScenarioExecutionContext(browser, page);
 
-            await test.step('Attach Scenario JSON', async ():Promise<void> => {
-                await attachScenarioInfo([scenario.rawData as unknown as Record<string, unknown>], false);
-            });
+            try {
+                await test.step('Attach Scenario JSON', async ():Promise<void> => {
+                    await attachScenarioInfo([scenario.rawData as unknown as Record<string, unknown>], false);
+                });
 
-            testInfo.annotations.push(
-                {type: 'feature', description: 'API Tests'},
-                {type: 'story', description: 'Calculator Endpoint'},
-                {type: 'parameter', description: JSON.stringify({name: 'scenarioName', value: scenario.scenarioName})},
-                {type: 'parameter', description: JSON.stringify({name: 'stepsCount', value: String(steps.length)})}
-            );
+                testInfo.annotations.push(
+                    {type: 'feature', description: 'API Tests'},
+                    {type: 'story', description: 'Calculator Endpoint'},
+                    {type: 'parameter', description: JSON.stringify({name: 'scenarioName', value: scenario.scenarioName})},
+                    {type: 'parameter', description: JSON.stringify({name: 'stepsCount', value: String(steps.length)})}
+                );
 
-            for (let stepIndex:number = 0; stepIndex < steps.length; stepIndex++) {
-                const step: StepData = steps[stepIndex];
-                const stepName: string = step.stepName || `Step ${stepIndex + 1}`;
-                const handler: (step: import('../src/scenario/loader').StepData, stepIndex: number, stepName: string, request: import('@playwright/test').APIRequestContext, page: import('@playwright/test').Page) => Promise<{
-                    requestBody: Record<string, unknown>;
-                    responseBody: Record<string, unknown>
-                }> = stepHandlers[step.stepType];
+                    for (let stepIndex:number = 0; stepIndex < steps.length; stepIndex++) {
+                        const step: StepData = steps[stepIndex];
+                        const stepName: string = step.stepName || `Step ${stepIndex + 1}`;
+                        const handler: (step: import('../src/scenario/loader').StepData, stepIndex: number, stepName: string, request: import('@playwright/test').APIRequestContext, page: import('@playwright/test').Page, executionContext: ScenarioExecutionContext) => Promise<{
+                            requestBody: Record<string, unknown>;
+                            responseBody: Record<string, unknown>
+                        }> = stepHandlers[step.stepType];
 
-                if (!handler) {
-                    throw new Error(`Unsupported stepType in step ${stepIndex + 1}: ${step.stepType}`);
-                }
-
-                await test.step(`Step ${stepIndex + 1}: ${stepName}`, async ():Promise<void> => {
-                    testInfo.annotations.push(
-                        {
-                            type: 'parameter',
-                            description: JSON.stringify({name: `step${stepIndex + 1}_type`, value: step.stepType})
-                        },
-                        {
-                            type: 'parameter',
-                            description: JSON.stringify({
-                                name: `step${stepIndex + 1}_returnCode`,
-                                value: String(step.returnCode)
-                            })
-                        },
-                        {
-                            type: 'parameter',
-                            description: JSON.stringify({
-                                name: `step${stepIndex + 1}_hasAttachment`,
-                                value: String(hasStepAttachments(step))
-                            })
-                        },
-                        {
-                            type: 'parameter',
-                            description: JSON.stringify({
-                                name: `step${stepIndex + 1}_dataHandlerName`,
-                                value: step.dataHandlerName ?? 'none'
-                            })
+                        if (!handler) {
+                            throw new Error(`Unsupported stepType in step ${stepIndex + 1}: ${step.stepType}`);
                         }
-                    );
 
-                    const result: { requestBody: Record<string, unknown>; responseBody: Record<string, unknown> } = await handler(step, stepIndex, stepName, request, page);
+                        await test.step(`Step ${stepIndex + 1}: ${stepName}`, async ():Promise<void> => {
+                            testInfo.annotations.push(
+                                {
+                                    type: 'parameter',
+                                    description: JSON.stringify({name: `step${stepIndex + 1}_type`, value: step.stepType})
+                                },
+                                {
+                                    type: 'parameter',
+                                    description: JSON.stringify({
+                                        name: `step${stepIndex + 1}_instance`,
+                                        value: getStepInstanceName(step)
+                                    })
+                                },
+                                {
+                                    type: 'parameter',
+                                    description: JSON.stringify({
+                                        name: `step${stepIndex + 1}_returnCode`,
+                                        value: String(step.returnCode)
+                                    })
+                                },
+                                {
+                                    type: 'parameter',
+                                    description: JSON.stringify({
+                                        name: `step${stepIndex + 1}_hasAttachment`,
+                                        value: String(hasStepAttachments(step))
+                                    })
+                                },
+                                {
+                                    type: 'parameter',
+                                    description: JSON.stringify({
+                                        name: `step${stepIndex + 1}_dataHandlerName`,
+                                        value: step.dataHandlerName ?? 'none'
+                                    })
+                                }
+                            );
 
-                    if (step.stepType === ScenarioType.BROWSER) {
-                        storeBrowserStepDataIfNeeded(step, result);
-                    } else if (step.dataHandlerName) {
-                        stepDataRegistry.set(step.dataHandlerName, {
-                            requestBody: result.requestBody,
-                            responseBody: result.responseBody
+                            const result: { requestBody: Record<string, unknown>; responseBody: Record<string, unknown> } = await handler(step, stepIndex, stepName, request, page, executionContext);
+
+                            if (step.stepType === ScenarioType.BROWSER) {
+                                storeBrowserStepDataIfNeeded(step, result);
+                            } else if (step.dataHandlerName) {
+                                stepDataRegistry.set(step.dataHandlerName, {
+                                    sources: {
+                                        request: result.requestBody,
+                                        response: result.responseBody
+                                    }
+                                });
+                            }
                         });
                     }
-                });
+            } finally {
+                await executionContext.cleanup();
             }
         });
     });

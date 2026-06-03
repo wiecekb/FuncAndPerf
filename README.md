@@ -4,6 +4,17 @@ A flexible, scenario-driven test automation framework for both **API** and **fro
 
 The **Calculator** module serves as a demo/test module. The **Browser** module demonstrates frontend UI testing with Playwright selectors, assertions, and configurable screenshots.
 
+Key features:
+
+- **Step Instances** — share browser contexts or API state across steps using `stepInstanceName`
+- **Cross-Step Data References** — read and inject any value type (string, number, object, array) between steps via the `dataHandlerName.source.$.jsonPath` syntax
+- **Modification API** — modify request payloads by parameter name or JSON Path
+- **Validation API** — validate responses by parameter name or JSON Path, with `equal` or `include` modes
+- **Attachments** — attach files (e.g. screenshots) to Allure reports from any step
+- **Host Resolution** — resolve host aliases from `config.yaml` via `hostRef`
+- **Performance Generators** — generate k6, k6/browser, and Gatling scripts from the same JSON scenarios
+- **Allure Reporting** — detailed test reports with assertion-level logging
+
 ## Technologies
 
 - **Playwright** — test automation framework
@@ -32,21 +43,57 @@ FunPerf/
 ├── README.md
 ├── tsconfig.json             # TypeScript configuration
 ├── schemas/                  # JSON Schemas for scenario validation
+│   └── scenario-schema.json  # Main scenario schema referencing step sub-schemas
 ├── scripts/                  # Utility scripts
+│   ├── generate-k6.ts        # k6 script generator
+│   ├── generate-k6-browser.ts# k6/browser script generator
+│   ├── generate-gatling.ts   # Gatling simulation generator
+│   ├── parse-test-results.ts # Parse JUnit results for Azure
+│   ├── shared.ts             # Shared generator utilities
+│   └── update-azure-test-results.ts # Update Azure Test Plans
 ├── src/                      # Source code
-│   ├── config.ts             # Configuration loader
+│   ├── config.ts             # Configuration loader from config.yaml + env vars
 │   ├── test-modules/         # Test module implementations
+│   │   ├── calculator/       # Calculator API step module
+│   │   ├── authorized-calculator/  # OAuth2-authorized calculator module
+│   │   └── browser/          # Browser UI step module (Playwright)
 │   ├── scenario/             # Scenario loader & types
+│   │   ├── data/             # Step data registry & cross-step reference resolution
+│   │   │   ├── registry.ts   # In-memory store for step request/response data
+│   │   │   └── resolve.ts    # Reference parser & resolver (e.g. stepName.response.$.path)
+│   │   ├── loader.ts         # JSON file/string parsing, AJV schema validation, Scenario model
+│   │   ├── instances.ts      # Step instance name/key utilities for multi-instance steps
+│   │   ├── execution-context.ts # Runtime context: browser pages, hostRef state per instance
+│   │   ├── modify.ts         # Modify request types & JSON path setter utility
+│   │   └── types.ts          # ScenarioType enum (CALCULATOR, AUTHORIZED_CALCULATOR, BROWSER) & HostRef
 │   ├── common/               # Shared utilities
+│   │   ├── codegen.ts        # Code generation helpers for k6/Gatling output
+│   │   ├── modifications.ts  # Modifier registry for in-flight payload changes
+│   │   └── validations.ts    # Response validation (JSON path, parameter, equal/include)
 │   ├── gatling/              # Gatling generator framework
+│   │   ├── interface.ts      # GatlingStepGenerator interface
+│   │   ├── common.ts         # Shared TypeScript code generation utilities
+│   │   └── registry.ts       # Generator registry singleton
 │   ├── k6/                   # k6 generator framework
-│   ├── mock/                # Mock server
-│   └── allure/              # Allure helpers
+│   │   ├── interface.ts      # K6StepGenerator interface
+│   │   ├── common.ts         # Shared JavaScript code generation utilities
+│   │   └── registry.ts       # Generator registry singleton
+│   ├── mock/                 # Mock server (Express) for calculator & auth endpoints
+│   ├── allure/               # Allure helpers
+│   └── utils/                # Utilities
+│       └── logging-expect.ts # Allure-aware Playwright expect wrapper with JSON attachments
 ├── tests/                    # Test files
-│   ├── scenarios/            # JSON scenario files
+│   ├── scenarios/            # JSON scenario files (6 demo scenarios)
+│   ├── data/                 # Test data files (e.g. authorized-users.txt)
 │   ├── unit/                 # Unit tests
-│   └── scenario-loader.spec.ts   # Main test runner
-└── performance_scripts/      # Generated performance test scripts
+│   │   ├── resolve-references.spec.ts  # Step data registry & reference resolution
+│   │   └── step-instances.spec.ts      # Step instance isolation tests
+│   └── scenario-loader.spec.ts   # Main integration test runner
+├── performance_scripts/      # Generated performance test scripts (k6 JS, Gatling TS)
+│   └── gatling/
+│       └── performance-test.gatling.ts
+└── plans/                    # Architecture & design documents
+    └── 2026-06-01-funperf-review.md
 ```
 
 ## Requirements
@@ -97,6 +144,45 @@ The mock server runs on port 3000 by default. Override with `MOCK_PORT` environm
 MOCK_PORT=8080 npm run mock:start
 ```
 
+## Verification & Compilation
+
+### TypeScript Type Check (no output files)
+
+```bash
+npx tsc --noEmit
+```
+
+This checks the entire project for type errors without generating files, using [`tsconfig.json`](tsconfig.json).
+
+### Full Compilation (generate dist/)
+
+```bash
+npx tsc
+```
+
+Output goes to the `dist/` directory as configured in [`tsconfig.json`](tsconfig.json:10).
+
+### Lint & Format Check
+
+```bash
+npm run lint
+npm run format:check
+```
+
+### Full Project Verification
+
+```bash
+npm run lint && npm run format:check && npx tsc --noEmit
+```
+
+### Generate Performance Scripts (verifies generators)
+
+```bash
+npm run k6:generate
+npm run k6:browser:generate
+npm run gatling:generate
+```
+
 ## Running Tests
 
 ### Locally
@@ -120,6 +206,9 @@ npx playwright test tests/unit/ --reporter=list
 
 # Run a specific unit test file
 npx playwright test tests/unit/resolve-references.spec.ts --reporter=list
+
+# Run step instances unit tests
+npx playwright test tests/unit/step-instances.spec.ts --reporter=list
 ```
 
 ### In CI/CD Mode
@@ -301,6 +390,208 @@ The k6/browser generator follows the same registry pattern as the k6 generator:
 - `scripts/generate-k6-browser.ts` — Browser-specific generator script
 
 To add a new step type, implement `K6StepGenerator` and register it in `src/k6/registry.ts`.
+
+## Scenario Schema Validation
+
+Every scenario JSON file is validated against a JSON Schema before execution.
+
+- **Main schema**: [`schemas/scenario-schema.json`](schemas/scenario-schema.json) — defines the `Scenario` and `Step` structures
+- **Step-type sub-schemas**: referenced via `$ref` from each test module's `step-*.json` file:
+  - `src/test-modules/calculator/step-calculator.json`
+  - `src/test-modules/authorized-calculator/step-authorized-calculator.json`
+  - `src/test-modules/browser/step-browser.json`
+
+Validation is performed by [`src/scenario/loader.ts`](src/scenario/loader.ts:69) using the AJV library. Sub-schemas are loaded at startup and registered by their normalized internal paths.
+
+## Framework Features
+
+### Step Instances
+
+By default, each step type shares a single runtime state (browser page, hostRef). To isolate state, use the `stepInstanceName` property on a step:
+
+```json
+{
+  "stepName": "First calculator",
+  "stepType": "CALCULATOR",
+  "stepInstanceName": "instanceA",
+  "hostRef": "calcApi",
+  "returnCode": 200,
+  "additionalData": { "operation": "add" },
+  "modifyRequests": [
+    { "jsonPath": "$.a", "modifiedValue": 5 },
+    { "jsonPath": "$.b", "modifiedValue": 3 }
+  ]
+}
+```
+
+- Steps with the same `stepType` + `stepInstanceName` share the same state (browser page, `currentHostRef`).
+- A missing `stepInstanceName` defaults to `"default"` per [`src/scenario/instances.ts`](src/scenario/instances.ts:1).
+- For the `BROWSER` step type, a non-default `stepInstanceName` creates a **new browser context** (isolated cookies, localStorage, etc.) via [`src/scenario/execution-context.ts`](src/scenario/execution-context.ts:66).
+
+### Cross-Step Data References
+
+Steps can read data from **earlier steps** and inject it into payloads or browser instructions. The syntax is:
+
+```
+<dataHandlerName>.<source>.<jsonPath>
+```
+
+The reference **preserves the original value type** — if it points to a number, object, array, boolean, or null, that exact typed value is injected (not coerced to string). This works because [`resolveReference()`](src/scenario/data/resolve.ts:83) returns the value directly through `jsonpath-plus`, and [`resolveModifyReferences()`](src/scenario/data/resolve.ts:85) assigns `modifiedValue` without string casting for `jsonPath`-based modifications.
+
+**Typing rules:**
+- Reference used via `jsonPath` → original type is preserved (number, object, array, boolean, string, null)
+- Reference used via `modifiedParameter` → value is coerced to string (see [`resolveModifyReferences()`](src/scenario/data/resolve.ts:94-98))
+- Reference used in a browser instruction `value` → value is coerced to string
+
+Steps can reference data from **earlier steps** using the syntax:
+
+```
+<dataHandlerName>.<source>.<jsonPath>
+```
+
+Where:
+
+- `dataHandlerName` — the `dataHandlerName` value of a previous step
+- `source` — one of `request`, `response`, or `context`
+- `jsonPath` — optional JSON path expression starting with `$.`
+
+#### Examples
+
+Reference a specific response value:
+```json
+{
+  "stepName": "Multiply previous result",
+  "stepType": "CALCULATOR",
+  "hostRef": "calcApi",
+  "returnCode": 200,
+  "additionalData": { "operation": "multiply" },
+  "modifyRequests": [
+    { "jsonPath": "$.a", "modifiedValue": "calcSeed.response.$.result" },
+    { "modifiedParameter": "b", "modifiedValue": "10" }
+  ]
+}
+```
+
+Reference the whole response object (injects as a nested object):
+```json
+{ "jsonPath": "$.meta.previousStep", "modifiedValue": "calcMul.response" }
+```
+
+Reference browser-extracted data:
+```json
+{ "kind": "action", "action": "goto", "value": "browserDocs.response.$.extracted.docsUrl" }
+```
+
+The reference resolver is implemented in [`src/scenario/data/resolve.ts`](src/scenario/data/resolve.ts). It uses `jsonpath-plus` for JSON path evaluation and supports array indexing (e.g. `$.domain.createdGuids[0]`).
+
+The `StepDataRegistry` in [`src/scenario/data/registry.ts`](src/scenario/data/registry.ts) stores `request`, `response`, and `context` data for each `dataHandlerName` during test execution.
+
+### Modification API
+
+Steps can modify request payloads using the `modifyRequests` array. Two formats are supported:
+
+**By parameter name** (legacy, string value only):
+```json
+{ "modifiedParameter": "a", "modifiedValue": "12" }
+```
+
+**By JSON Path** (supports typed values: number, boolean, object, array):
+```json
+{ "jsonPath": "$.b", "modifiedValue": 8 }
+{ "jsonPath": "$.meta.tags", "modifiedValue": ["smoke", "regression"] }
+{ "jsonPath": "$.enabled", "modifiedValue": true }
+```
+
+The modification logic is handled by:
+- [`src/scenario/modify.ts`](src/scenario/modify.ts) — `setByJsonPath()` utility
+- [`src/common/codegen.ts`](src/common/codegen.ts) — `generateModification()` for performance script generation
+- [`src/common/modifications.ts`](src/common/modifications.ts) — `ModifierRegistry` for runtime `modifiedParameter` lookups
+
+### Validation API
+
+Response validation is configured via the `validateResponse` array on each step:
+
+```json
+"validateResponse": [
+  { "validatedParameter": "result", "validatedParameterValue": "20" },
+  { "jsonPath": "$.operation", "validatedParameterValue": "add", "validationType": "equal" }
+]
+```
+
+**Options:**
+
+| Field | Required | Description |
+|---|---|---|
+| `validatedParameter` | conditional | Parameter name (for simple top-level checks) |
+| `jsonPath` | conditional | JSON path expression |
+| `validatedParameterValue` | yes | Expected value as string |
+| `validationType` | no | `"equal"` (default) or `"include"` |
+| `validatedParameterDescription` | no | Custom description for Allure reporting |
+
+The validation engine is in [`src/common/validations.ts`](src/common/validations.ts):
+
+- `validateApiResponse()` — iterates over all validation entries
+- `validateJsonPath()` — evaluates a JSON path against a response
+- `assertValidation()` — delegates to Allure-aware `expectWithDescription` from [`src/utils/logging-expect.ts`](src/utils/logging-expect.ts)
+
+### Attachments
+
+Steps can attach files to the Allure report using the `addAttachments` array:
+
+```json
+{
+  "stepName": "Screenshot step",
+  "stepType": "BROWSER",
+  "returnCode": 200,
+  "addAttachments": [
+    { "path": "screenshots/example.png" }
+  ]
+}
+```
+
+The `hasStepAttachments()` function in [`src/scenario/loader.ts`](src/scenario/loader.ts:115) checks for attachments before processing.
+
+### Step Data (context)
+
+The `data` module supports a third source — `context` — which stores step-level metadata:
+- `currentUrl` — current browser URL (set after browser actions)
+- `extracted` — values extracted via browser `extract` instructions
+
+Browser extraction example:
+```json
+{
+  "kind": "extract",
+  "extract": "url",
+  "saveAs": "docsUrl"
+},
+{
+  "kind": "extract",
+  "extract": "textContent",
+  "selector": { "kind": "css", "value": "h1" },
+  "saveAs": "docsHeading"
+}
+```
+
+These can be referenced as `dataHandler.response.$.extracted.docsUrl` or `dataHandler.response.$.currentUrl`.
+
+## Scenario Runner Details
+
+### StepData Interface
+
+Each step in a scenario JSON file maps to the `StepData` type defined in [`src/scenario/loader.ts`](src/scenario/loader.ts:16):
+
+| Property | Type | Description |
+|---|---|---|
+| `stepName` | `string` | Human-readable step name (displayed in Allure) |
+| `stepInstanceName` | `string?` | Instance key for state isolation |
+| `stepType` | `ScenarioType` | One of `CALCULATOR`, `AUTHORIZED_CALCULATOR`, `BROWSER` |
+| `dataHandlerName` | `string?` | Name for cross-step data references |
+| `returnCode` | `number` | Expected HTTP status code |
+| `modifyRequests` | `ModifyRequest[]?` | Payload modifications |
+| `addAttachments` | `AddAttachment[]?` | Files to attach to Allure report |
+| `validateResponse` | `BaseValidation[]?` | Response validation rules |
+| `additionalData` | `object?` | Step-type-specific configuration (e.g. `operation`, `instructions`) |
+| `hostRef` | `HostRef?` | Host alias from `config.yaml` |
 
 ## Adding a New Step Type
 

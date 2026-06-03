@@ -15,6 +15,7 @@ export interface ScenarioData {
 
 export interface StepData {
     stepName?: string;
+    stepInstanceName?: string;
     stepType: ScenarioType;
     dataHandlerName?: string;
     returnCode: number;
@@ -37,18 +38,39 @@ export function resolveHostRef(hostRef: string | undefined, appConfig: AppConfig
 }
 
 const schemasDir = path.resolve('schemas');
-const scenarioSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, 'scenario-schema.json'), 'utf-8'));
+const scenarioSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, 'scenario-schema.json'), 'utf-8')) as Record<string, unknown>;
 
 // Load sub-schemas so AJV can resolve $ref references to them
-const calculatorSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, '..', 'src', 'test-modules', 'calculator', 'step-calculator.json'), 'utf-8'));
-const authorizedCalculatorSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, '..', 'src', 'test-modules', 'authorized-calculator', 'step-authorized-calculator.json'), 'utf-8'));
-const browserSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, '..', 'src', 'test-modules', 'browser', 'step-browser.json'), 'utf-8'));
+const calculatorSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, '..', 'src', 'test-modules', 'calculator', 'step-calculator.json'), 'utf-8')) as Record<string, unknown>;
+const authorizedCalculatorSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, '..', 'src', 'test-modules', 'authorized-calculator', 'step-authorized-calculator.json'), 'utf-8')) as Record<string, unknown>;
+const browserSchema = JSON.parse(fs.readFileSync(path.join(schemasDir, '..', 'src', 'test-modules', 'browser', 'step-browser.json'), 'utf-8')) as Record<string, unknown>;
+
+const scenarioSchemaNormalized = JSON.parse(JSON.stringify(scenarioSchema)) as {
+    definitions?: {
+        Step?: {
+            oneOf?: Array<{ $ref?: string }>;
+        };
+    };
+};
+
+for (const variant of scenarioSchemaNormalized.definitions?.Step?.oneOf ?? []) {
+    if (typeof variant.$ref === 'string' && variant.$ref.startsWith('../src/')) {
+        variant.$ref = variant.$ref.replace('../src/', 'src/');
+    }
+}
+
+const calculatorSchemaForAjv: Record<string, unknown> = {...calculatorSchema};
+const authorizedCalculatorSchemaForAjv: Record<string, unknown> = {...authorizedCalculatorSchema};
+const browserSchemaForAjv: Record<string, unknown> = {...browserSchema};
+delete calculatorSchemaForAjv.$id;
+delete authorizedCalculatorSchemaForAjv.$id;
+delete browserSchemaForAjv.$id;
 
 const ajv = new Ajv({allErrors: true});
-ajv.addSchema(calculatorSchema, '../src/test-modules/calculator/step-calculator.json');
-ajv.addSchema(authorizedCalculatorSchema, '../src/test-modules/authorized-calculator/step-authorized-calculator.json');
-ajv.addSchema(browserSchema, '../src/test-modules/browser/step-browser.json');
-const validateScenario = ajv.compile(scenarioSchema);
+ajv.addSchema(calculatorSchemaForAjv, 'src/test-modules/calculator/step-calculator.json');
+ajv.addSchema(authorizedCalculatorSchemaForAjv, 'src/test-modules/authorized-calculator/step-authorized-calculator.json');
+ajv.addSchema(browserSchemaForAjv, 'src/test-modules/browser/step-browser.json');
+const validateScenario = ajv.compile(scenarioSchemaNormalized);
 
 function validateScenariosSchema(data: unknown[], source: string): void {
     const valid = validateScenario(data);

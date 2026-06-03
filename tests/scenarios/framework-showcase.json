@@ -1,0 +1,383 @@
+[
+  {
+    "scenarioName": "Framework showcase - calculator references and object injection",
+    "steps": [
+      {
+        "stepName": "Step 1: Add 12 + 8 = 20",
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "dataHandlerName": "calcSeed",
+        "returnCode": 200,
+        "additionalData": {
+          "operation": "add"
+        },
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "12"
+          },
+          {
+            "jsonPath": "$.b",
+            "modifiedValue": 8
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "20"
+          },
+          {
+            "jsonPath": "$.operation",
+            "validatedParameterValue": "add",
+            "validationType": "equal"
+          }
+        ]
+      },
+      {
+        "stepName": "Step 2: Multiply previous result 20 * 10 = 200",
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "dataHandlerName": "calcMul",
+        "returnCode": 200,
+        "additionalData": {
+          "operation": "multiply"
+        },
+        "modifyRequests": [
+          {
+            "jsonPath": "$.a",
+            "modifiedValue": "calcSeed.response.$.result"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "10"
+          }
+        ],
+        "validateResponse": [
+          {
+            "jsonPath": "$.result",
+            "validatedParameterValue": "200",
+            "validationType": "equal"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "multiply"
+          }
+        ]
+      },
+      {
+        "stepName": "Step 3: Add 200 + 5 = 205 and inject whole previous response object",
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "returnCode": 200,
+        "additionalData": {
+          "operation": "add"
+        },
+        "modifyRequests": [
+          {
+            "jsonPath": "$.a",
+            "modifiedValue": "calcMul.response.$.result"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "5"
+          },
+          {
+            "jsonPath": "$.meta.previousStep",
+            "modifiedValue": "calcMul.response"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "205"
+          },
+          {
+            "jsonPath": "$.operation",
+            "validatedParameterValue": "add",
+            "validationType": "equal"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenarioName": "Framework showcase - authorized calculator chain",
+    "steps": [
+      {
+        "stepName": "Step 1: Authorized add 6 + 4 = 10",
+        "stepType": "AUTHORIZED_CALCULATOR",
+        "hostRef": "calcApi",
+        "dataHandlerName": "authAdd",
+        "returnCode": 200,
+        "additionalData": {
+          "operation": "add"
+        },
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "6"
+          },
+          {
+            "jsonPath": "$.b",
+            "modifiedValue": 4
+          }
+        ],
+        "validateResponse": [
+          {
+            "jsonPath": "$.result",
+            "validatedParameterValue": "10",
+            "validationType": "equal"
+          },
+          {
+            "jsonPath": "$.operation",
+            "validatedParameterValue": "add",
+            "validationType": "equal"
+          }
+        ]
+      },
+      {
+        "stepName": "Step 2: Authorized multiply previous result 10 * 3 = 30",
+        "stepType": "AUTHORIZED_CALCULATOR",
+        "hostRef": "calcApi",
+        "returnCode": 200,
+        "additionalData": {
+          "operation": "multiply"
+        },
+        "modifyRequests": [
+          {
+            "jsonPath": "$.a",
+            "modifiedValue": "authAdd.response.$.result"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "3"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "30"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "multiply"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenarioName": "Framework showcase - browser flow with extracted data",
+    "steps": [
+      {
+        "stepName": "Step 1: Open homepage, navigate to docs and extract values",
+        "stepType": "BROWSER",
+        "hostRef": "frontendMain",
+        "dataHandlerName": "browserDocs",
+        "returnCode": 200,
+        "additionalData": {
+          "screenshot": {
+            "enabled": true,
+            "mode": "onStepEnd",
+            "fullPage": false,
+            "namePrefix": "framework-showcase"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/"
+            },
+            {
+              "kind": "action",
+              "action": "click",
+              "selector": {
+                "kind": "role",
+                "role": "link",
+                "name": "Docs"
+              }
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/docs/intro"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toContainText",
+              "selector": {
+                "kind": "css",
+                "value": "h1"
+              },
+              "expected": "Installation"
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "docsUrl"
+            },
+            {
+              "kind": "extract",
+              "extract": "textContent",
+              "selector": {
+                "kind": "css",
+                "value": "h1"
+              },
+              "saveAs": "docsHeading"
+            }
+          ]
+        }
+      },
+      {
+        "stepName": "Step 2: Reuse extracted URL from previous browser step",
+        "stepType": "BROWSER",
+        "hostRef": "frontendMain",
+        "returnCode": 200,
+        "additionalData": {
+          "screenshot": {
+            "enabled": true,
+            "mode": "manualOnly",
+            "fullPage": false,
+            "namePrefix": "framework-showcase"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "browserDocs.response.$.extracted.docsUrl"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "browserDocs.response.$.extracted.docsUrl"
+            },
+            {
+              "kind": "action",
+              "action": "screenshot"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "scenarioName": "Framework showcase - mixed browser + api references",
+    "steps": [
+      {
+        "stepName": "Step 1: Browser extract docs URL",
+        "stepType": "BROWSER",
+        "hostRef": "frontendMain",
+        "dataHandlerName": "mixedBrowser",
+        "returnCode": 200,
+        "additionalData": {
+          "screenshot": {
+            "enabled": true,
+            "mode": "manualOnly",
+            "fullPage": false,
+            "namePrefix": "framework-showcase-mixed-step1"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/docs/intro"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/docs/intro"
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "docsIntroUrl"
+            },
+            {
+              "kind": "action",
+              "action": "screenshot"
+            }
+          ]
+        }
+      },
+      {
+        "stepName": "Step 2: Browser opens docs URL and clicks API link",
+        "stepType": "BROWSER",
+        "hostRef": "frontendMain",
+        "dataHandlerName": "mixedBrowserApi",
+        "returnCode": 200,
+        "additionalData": {
+          "screenshot": {
+            "enabled": true,
+            "mode": "onAssertionFail",
+            "fullPage": false,
+            "namePrefix": "framework-showcase-mixed-step2"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/java"
+            },
+            {
+              "kind": "action",
+              "action": "click",
+              "selector": {
+                "kind": "role",
+                "role": "link",
+                "name": "Community",
+                "exact": true
+              }
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://playwright.dev/java/community/welcome"
+            },
+            {
+              "kind": "action",
+              "action": "screenshot"
+            }
+          ]
+        }
+      },
+      {
+        "stepName": "Step 3: API add with values injected from browser steps",
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "dataHandlerName": "mixedCalc",
+        "returnCode": 200,
+        "additionalData": {
+          "operation": "add"
+        },
+        "modifyRequests": [
+          {
+            "jsonPath": "$.a",
+            "modifiedValue": 9
+          },
+          {
+            "jsonPath": "$.b",
+            "modifiedValue": 1
+          },
+          {
+            "jsonPath": "$.meta.originUrl",
+            "modifiedValue": "mixedBrowser.response.$.extracted.docsIntroUrl"
+          },
+          {
+            "jsonPath": "$.meta.currentUrl",
+            "modifiedValue": "mixedBrowserApi.response.$.currentUrl"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "10"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "add"
+          }
+        ]
+      }
+    ]
+  }
+]

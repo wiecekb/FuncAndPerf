@@ -11,6 +11,7 @@ import {
   parseStepDataReference
 } from './shared';
 import * as fs from 'fs';
+import {getStepInstanceKey} from '../src/scenario/instances';
 
 function toValidFunctionName(name: string): string {
     let fn: string = name
@@ -69,7 +70,8 @@ function generateK6Script(scenarios: Scenario[]): string {
 
     const preambleCtx: K6GeneratorContext = {
         declaredAttachments: new Set(),
-        stepVarName: (_i: number): string => 'step'
+        stepVarName: (_i: number): string => 'step',
+        stepInstanceHostRefs: new Map<string, string>()
     };
 
     // ── Preamble (attachments) ──
@@ -135,13 +137,17 @@ function generateK6Script(scenarios: Scenario[]): string {
             // Track hostRef across steps in this scenario
             if (step.hostRef) {
                 preambleCtx.currentHostRef = step.hostRef;
+                preambleCtx.stepInstanceHostRefs?.set(getStepInstanceKey(step), step.hostRef);
             }
 
-            const {code: payloadCode} = gen.generateDefaultPayload(step, {
+            const ctx: K6GeneratorContext = {
                 declaredAttachments: preambleCtx.declaredAttachments,
-                stepVarName: (i: number) => `step${i}`,
-                currentHostRef: preambleCtx.currentHostRef
-            });
+                stepVarName: (i: number): string => `step${i}`,
+                currentHostRef: preambleCtx.currentHostRef,
+                stepInstanceHostRefs: preambleCtx.stepInstanceHostRefs
+            };
+
+            const {code: payloadCode} = gen.generateDefaultPayload(step, ctx);
 
             for (const line of payloadCode) {
                 const renamed: string = line
@@ -153,7 +159,7 @@ function generateK6Script(scenarios: Scenario[]): string {
             if (step.modifyRequests && step.modifyRequests.length > 0) {
                 blockLines.push(`    // Apply modifications`);
                 for (const mod of step.modifyRequests) {
-                    if (isStepDataReference(mod.modifiedValue)) {
+                    if (typeof mod.modifiedValue === 'string' && isStepDataReference(mod.modifiedValue)) {
                         const ref: {
                             dataHandlerName: string;
                             jsonPath: string
@@ -179,22 +185,14 @@ function generateK6Script(scenarios: Scenario[]): string {
                         }
                     }
 
-                    const modLines: string[] = gen.generateModification(mod, payloadVarName, step, {
-                        declaredAttachments: preambleCtx.declaredAttachments,
-                        stepVarName: (i: number): string => `step${i}`,
-                        currentHostRef: preambleCtx.currentHostRef
-                    });
+                    const modLines: string[] = gen.generateModification(mod, payloadVarName, step, ctx);
                     blockLines.push(...modLines.map(l => `    ${l}`));
                 }
             }
 
             blockLines.push('');
 
-            const httpLines: string[] = gen.generateHttpCall(payloadVarName, step, {
-                declaredAttachments: preambleCtx.declaredAttachments,
-                stepVarName: (i: number): string => `step${i}`,
-                currentHostRef: preambleCtx.currentHostRef
-            });
+            const httpLines: string[] = gen.generateHttpCall(payloadVarName, step, ctx);
             for (const line of httpLines) {
                 const renamed: string = line
                     .replace(/\bconst res\b/g, resVarName)
@@ -213,11 +211,7 @@ function generateK6Script(scenarios: Scenario[]): string {
 
             if (step.validateResponse && step.validateResponse.length > 0) {
                 for (const v of step.validateResponse) {
-                    const checkLine: string | null = gen.generateValidationCheck(v, resVarName, step, {
-                        declaredAttachments: preambleCtx.declaredAttachments,
-                        stepVarName: (i: number): string => `step${i}`,
-                        currentHostRef: preambleCtx.currentHostRef
-                    });
+                    const checkLine: string | null = gen.generateValidationCheck(v, resVarName, step, ctx);
                     if (checkLine) checks.push(checkLine);
                 }
             }

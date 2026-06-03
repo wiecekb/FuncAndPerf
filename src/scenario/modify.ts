@@ -3,14 +3,14 @@ export type ModifyRequest = {
     modifiedValue: string;
 } | {
     jsonPath: string;
-    modifiedValue: string;
+    modifiedValue: unknown;
 };
 
 export type AddAttachment = {
     path: string;
 };
 
-export function setByJsonPath(obj: Record<string, unknown>, path: string, value: string): void {
+export function setByJsonPath(obj: Record<string, unknown>, path: string, value: unknown): void {
     const cleanPath: string = path.replace(/^\$\./, '');
     const keys: string[] = cleanPath.split('.');
 

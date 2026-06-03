@@ -29,9 +29,10 @@ export class AuthorizedCalculatorGatlingGenerator implements GatlingStepGenerato
     }
 
     generateModification(mod: ModifyRequest, payloadVarName: string): string[] {
-        return generateCommonModification(mod, payloadVarName, (v: string): string => {
-            const numValue: number = parseInt(v, 10);
-            return isNaN(numValue) ? `'${escapeJsString(v)}'` : String(numValue);
+        return generateCommonModification(mod, payloadVarName, (v: unknown): string => {
+            const rawValue: string = typeof v === 'string' ? v : String(v);
+            const numValue: number = parseInt(rawValue, 10);
+            return isNaN(numValue) ? `'${escapeJsString(rawValue)}'` : String(numValue);
         });
     }
 
@@ -49,10 +50,12 @@ export class AuthorizedCalculatorGatlingGenerator implements GatlingStepGenerato
         const endpoint: string = AUTHORIZED_CALC_OPERATION_TO_ENDPOINT[operation || ''] || '/authorized/api/calc/add';
         const stepName: string = escapeJsString(step.stepName || step.stepType);
         const baseExpr: string = resolveAuthorizedCalcBaseExpr(step, ctx).replace(/`/g, '');
+        const tokenUrl: string = `\`${baseExpr}/oauth/token\``;
+        const requestUrl: string = `\`${baseExpr}${endpoint}\``;
 
         return [
             `http('${stepName} token')`,
-            `  .post('${baseExpr}/oauth/token')`,
+            `  .post(${tokenUrl})`,
             `  .header('Content-Type', 'application/json')`,
             `  .body(StringBody(() => JSON.stringify({`,
             `    grant_type: 'password',`,
@@ -65,7 +68,7 @@ export class AuthorizedCalculatorGatlingGenerator implements GatlingStepGenerato
             `  .check(jsonPath('$.access_token').saveAs('authorizedAccessToken'))`,
             `  .resources(`,
             `    http('${stepName}')`,
-            `      .post('${baseExpr}${endpoint}')`,
+            `      .post(${requestUrl})`,
             `      .header('Content-Type', 'application/json')`,
             `      .header('Authorization', (${sessionFnParam}) => \`Bearer \${${sessionFnParam}.get('authorizedAccessToken')}\`)`,
             `      .body(StringBody((${sessionFnParam}) => {`,

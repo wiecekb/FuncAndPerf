@@ -9,6 +9,9 @@ export interface GatlingGeneratorContext {
 
     /** Tracks the current hostRef from the last step that declared one, for resolution by subsequent steps. */
     currentHostRef?: string;
+
+    /** Tracks current hostRef per stepType + stepInstanceName. */
+    stepInstanceHostRefs?: Map<string, string>;
 }
 
 export interface GatlingPayloadResult {

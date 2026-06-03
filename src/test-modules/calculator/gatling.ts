@@ -48,9 +48,10 @@ export class CalculatorGatlingGenerator implements GatlingStepGenerator {
         return generateCommonModification(
             mod,
             payloadVarName,
-            (v: string) => {
-                const numValue: number = parseInt(v, 10);
-                return isNaN(numValue) ? `'${escapeJsString(v)}'` : String(numValue);
+            (v: unknown):string => {
+                const rawValue: string = typeof v === 'string' ? v : String(v);
+                const numValue: number = parseInt(rawValue, 10);
+                return isNaN(numValue) ? `'${escapeJsString(rawValue)}'` : String(numValue);
             }
         );
     }

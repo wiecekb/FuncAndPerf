@@ -123,6 +123,12 @@
         "returnCode": 200,
         "dataHandlerName": "stepOne",
         "additionalData": {
+          "screenshot": {
+            "enabled": true,
+            "mode": "onStepEnd",
+            "fullPage": false,
+            "namePrefix": "browser-demo-multistep"
+          },
           "instructions": [
             {
               "kind": "action",
@@ -153,6 +159,12 @@
         "returnCode": 200,
         "dataHandlerName": "stepTwo",
         "additionalData": {
+          "screenshot": {
+            "enabled": true,
+            "mode": "onStepEnd",
+            "fullPage": false,
+            "namePrefix": "browser-demo-multistep"
+          },
           "instructions": [
             {
               "kind": "action",
