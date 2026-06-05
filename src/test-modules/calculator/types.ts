@@ -1,4 +1,4 @@
 export interface CalcResponseJson {
-    result: number;
-    operation: 'add' | 'multiply';
+  result: number;
+  operation: 'add' | 'multiply';
 }

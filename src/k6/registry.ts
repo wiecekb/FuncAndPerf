@@ -1,22 +1,21 @@
-import type {K6StepGenerator} from './interface';
-import {CalculatorK6Generator} from '../test-modules/calculator/k6';
-import {AuthorizedCalculatorK6Generator} from '../test-modules/authorized-calculator/k6';
+import type { K6StepGenerator } from './interface';
+import { CalculatorK6Generator } from '../test-modules/calculator/k6';
+import { AuthorizedCalculatorK6Generator } from '../test-modules/authorized-calculator/k6';
 
 class K6StepGeneratorRegistry {
-    private generators: Map<string, K6StepGenerator> = new Map<string, K6StepGenerator>();
+  private generators: Map<string, K6StepGenerator> = new Map<string, K6StepGenerator>();
 
-    register(generator: K6StepGenerator): void {
-        this.generators.set(generator.stepType, generator);
-    }
+  register(generator: K6StepGenerator): void {
+    this.generators.set(generator.stepType, generator);
+  }
 
-    get(stepType: string): K6StepGenerator | undefined {
-        return this.generators.get(stepType);
-    }
+  get(stepType: string): K6StepGenerator | undefined {
+    return this.generators.get(stepType);
+  }
 
-    has(stepType: string): boolean {
-        return this.generators.has(stepType);
-    }
-
+  has(stepType: string): boolean {
+    return this.generators.has(stepType);
+  }
 }
 
 export const k6GeneratorRegistry = new K6StepGeneratorRegistry();

@@ -1,356 +1,368 @@
-import {type Scenario, StepData} from '../src/scenario/loader';
-import {gatlingGeneratorRegistry} from '../src/gatling/registry';
-import type {GatlingGeneratorContext, GatlingPayloadResult, GatlingStepGenerator} from '../src/gatling/interface';
-import {config} from '../src/config';
-import {escapeJsString} from '../src/gatling/common';
+import { type Scenario, StepData } from '../src/scenario/loader';
+import { gatlingGeneratorRegistry } from '../src/gatling/registry';
+import type { GatlingGeneratorContext, GatlingPayloadResult, GatlingStepGenerator } from '../src/gatling/interface';
+import { config } from '../src/config';
+import { escapeJsString, setNestedValueCode } from '../src/gatling/common';
 import {
   buildDataHandlerMap,
   emitScenarioMetadata,
   isStepDataReference,
   loadAllScenarios,
-  parseStepDataReference
+  parseStepDataReference,
 } from './shared';
 import * as fs from 'fs';
 import * as path from 'path';
-import {getStepInstanceKey} from '../src/scenario/instances';
+import { getStepInstanceKey } from '../src/scenario/instances';
 
 function toValidFunctionName(index: number, name: string): string {
-    let fn: string = name
-        .replace(/[^a-zA-Z0-9_]/g, '_')
-        .replace(/^_+|_+$/g, '');
-    if (/^[0-9]/.test(fn)) {
-        fn = 'scenario_' + fn;
-    }
-    return `scenario_${index}_${fn || 'scenario'}`;
+  let fn: string = name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '');
+  if (/^[0-9]/.test(fn)) {
+    fn = 'scenario_' + fn;
+  }
+  return `scenario_${index}_${fn || 'scenario'}`;
 }
 
 function generateStepDataRead(sessionVarName: string, saveKey: string, jsonPath: string): string {
-    const cleanPath: string = jsonPath.replace(/^\$\./, '');
-    const keys: string[] = cleanPath.split('.');
-    const chain: string = keys.map((k: string): string => `?.['${k}']`).join('');
-    return `JSON.parse(${sessionVarName}.get('${saveKey}'))${chain}`;
+  const cleanPath: string = jsonPath.replace(/^\$\./, '');
+  const keys: string[] = cleanPath.split('.');
+  const chain: string = keys.map((k: string): string => `?.['${k}']`).join('');
+  return `JSON.parse(${sessionVarName}.get('${saveKey}'))${chain}`;
 }
 
-function generateGatlingSimulation(scenarios: Scenario[]): string {
-    const lines: string[] = [];
-    const emit: (line?: string) => number = (line: string = ''): number => lines.push(line);
+export function generateGatlingSimulation(scenarios: Scenario[]): string {
+  const lines: string[] = [];
+  const emit: (line?: string) => number = (line: string = ''): number => lines.push(line);
 
-    // ── Header ──
-    emit("import { simulation, scenario, pause, StringBody, getEnvironmentVariable, jsonPath, bodyString, constantUsersPerSec } from '@gatling.io/core';");
-    emit("import { http, status } from '@gatling.io/http';");
-    emit('');
-    emit('const AUTH_TOKEN = getEnvironmentVariable("AUTH_TOKEN") || "no-token";');
-    emit(`const HOSTS = ${JSON.stringify(config.hosts || {})};`);
-    emit('');
+  // ── Header ──
+  emit(
+    "import { simulation, scenario, pause, exec, StringBody, getEnvironmentVariable, jsonPath, bodyString, constantUsersPerSec } from '@gatling.io/core';"
+  );
+  emit("import { http, status } from '@gatling.io/http';");
+  emit('');
+  emit('const AUTH_TOKEN = getEnvironmentVariable("AUTH_TOKEN") || "no-token";');
+  emit(`const HOSTS = ${JSON.stringify(config.hosts || {})};`);
+  emit('');
 
-    // ── Preamble (attachments) ──
-    const preambleCtx: GatlingGeneratorContext = {
-        declaredAttachments: new Set(),
+  // ── Preamble (attachments) ──
+  const preambleCtx: GatlingGeneratorContext = {
+    declaredAttachments: new Set(),
+    stepVarName: (i: number): string => `step${i}`,
+    stepInstanceHostRefs: new Map<string, string>(),
+  };
+  const preambleLines: string[] = [];
+  for (const scenario of scenarios) {
+    for (const step of scenario.steps) {
+      const gen: GatlingStepGenerator | undefined = gatlingGeneratorRegistry.get(step.stepType);
+      if (gen?.generatePreamble) {
+        preambleLines.push(...gen.generatePreamble(step, preambleCtx));
+      }
+    }
+  }
+  const uniquePreamble: string[] = [...new Set(preambleLines)];
+  if (uniquePreamble.length > 0) {
+    emit('// Pre-load attachment files');
+    for (const line of uniquePreamble) {
+      emit(line);
+    }
+    emit('');
+  }
+
+  const functionNames: string[] = [];
+
+  // ── Scenario functions ──
+  for (let si: number = 0; si < scenarios.length; si++) {
+    const scenario: Scenario = scenarios[si];
+    const steps: StepData[] = scenario.steps;
+    const fnName: string = toValidFunctionName(si, scenario.scenarioName);
+    const dataHandlerMap: Map<string, number> = buildDataHandlerMap(steps);
+
+    const supportedSteps: StepData[] = steps.filter((s: StepData) => gatlingGeneratorRegistry.has(s.stepType));
+    if (supportedSteps.length === 0) {
+      emit(`// Scenario ${si}: "${scenario.scenarioName}" — SKIPPED (no supported step types)`);
+      emit(`export function ${fnName}() { return scenario('${escapeJsString(scenario.scenarioName)}'); }`);
+      emit('');
+      functionNames.push(fnName);
+      continue;
+    }
+
+    emit(`// ── Scenario ${si + 1}: ${scenario.scenarioName} ──`);
+    emit(`export function ${fnName}() {`);
+    emit(`  return scenario('${escapeJsString(scenario.scenarioName)}')`);
+
+    for (let stepIdx: number = 0; stepIdx < steps.length; stepIdx++) {
+      const step: StepData = steps[stepIdx];
+      const gen: GatlingStepGenerator | undefined = gatlingGeneratorRegistry.get(step.stepType);
+
+      if (!gen) {
+        emit(`    // WARNING: No Gatling generator registered for step type "${step.stepType}"`);
+        emit(`    // Skipping step: ${step.stepName || step.stepType}`);
+        emit('');
+        continue;
+      }
+
+      // Track hostRef across steps in this scenario
+      if (step.hostRef) {
+        preambleCtx.currentHostRef = step.hostRef;
+        preambleCtx.stepInstanceHostRefs?.set(getStepInstanceKey(step), step.hostRef);
+      }
+
+      const ctx: GatlingGeneratorContext = {
+        declaredAttachments: preambleCtx.declaredAttachments,
         stepVarName: (i: number): string => `step${i}`,
-        stepInstanceHostRefs: new Map<string, string>()
-    };
-    const preambleLines: string[] = [];
-    for (const scenario of scenarios) {
-        for (const step of scenario.steps) {
-            const gen: GatlingStepGenerator | undefined = gatlingGeneratorRegistry.get(step.stepType);
-            if (gen?.generatePreamble) {
-                preambleLines.push(...gen.generatePreamble(step, preambleCtx));
-            }
-        }
-    }
-    const uniquePreamble: string[] = [...new Set(preambleLines)];
-    if (uniquePreamble.length > 0) {
-        emit('// Pre-load attachment files');
-        for (const line of uniquePreamble) {
-            emit(line);
-        }
-        emit('');
-    }
+        currentHostRef: preambleCtx.currentHostRef,
+        stepInstanceHostRefs: preambleCtx.stepInstanceHostRefs,
+      };
 
-    const functionNames: string[] = [];
+      const payloadResult: GatlingPayloadResult = gen.generateDefaultPayload(step, ctx);
+      const payloadVarName: string = payloadResult.payloadVarName;
 
-    // ── Scenario functions ──
-    for (let si: number = 0; si < scenarios.length; si++) {
-        const scenario: Scenario = scenarios[si];
-        const steps: StepData[] = scenario.steps;
-        const fnName: string = toValidFunctionName(si, scenario.scenarioName);
-        const dataHandlerMap: Map<string, number> = buildDataHandlerMap(steps);
+      emit(`    // Step ${stepIdx + 1}: ${step.stepName || step.stepType}`);
+      emit(`    .exec(`);
 
-        const supportedSteps: StepData[] = steps.filter((s: StepData) => gatlingGeneratorRegistry.has(s.stepType));
-        if (supportedSteps.length === 0) {
-            emit(`// Scenario ${si}: "${scenario.scenarioName}" — SKIPPED (no supported step types)`);
-            emit(`export function ${fnName}() { return scenario('${escapeJsString(scenario.scenarioName)}'); }`);
-            emit('');
-            functionNames.push(fnName);
-            continue;
-        }
+      const sessionFnParam: string = `step${stepIdx}`;
+      const sessionFnBody: string[] = [];
 
-        emit(`// ── Scenario ${si + 1}: ${scenario.scenarioName} ──`);
-        emit(`export function ${fnName}() {`);
-        emit(`  return scenario('${escapeJsString(scenario.scenarioName)}')`);
+      for (const line of payloadResult.code) {
+        sessionFnBody.push(`      ${line}`);
+      }
 
-        for (let stepIdx: number = 0; stepIdx < steps.length; stepIdx++) {
-            const step: StepData = steps[stepIdx];
-            const gen: GatlingStepGenerator | undefined = gatlingGeneratorRegistry.get(step.stepType);
+      if (step.modifyRequests) {
+        for (const mod of step.modifyRequests) {
+          const modValue: unknown = mod.modifiedValue;
 
-            if (!gen) {
-                emit(`    // WARNING: No Gatling generator registered for step type "${step.stepType}"`);
-                emit(`    // Skipping step: ${step.stepName || step.stepType}`);
-                emit('');
+          if (typeof modValue === 'string' && isStepDataReference(modValue)) {
+            const ref: {
+              dataHandlerName: string;
+              jsonPath: string;
+            } | null = parseStepDataReference(modValue);
+            if (ref) {
+              const srcIdx: number | undefined = dataHandlerMap.get(ref.dataHandlerName);
+              if (srcIdx !== undefined) {
+                const saveKey: string = `resBody${srcIdx}`;
+                const stepDataReadCode: string = generateStepDataRead(sessionFnParam, saveKey, ref.jsonPath);
+                if ('modifiedParameter' in mod) {
+                  sessionFnBody.push(`      ${payloadVarName}.${mod.modifiedParameter} = ${stepDataReadCode};`);
+                } else if ('jsonPath' in mod) {
+                  sessionFnBody.push(`      ${setNestedValueCode(payloadVarName, mod.jsonPath, stepDataReadCode)}`);
+                }
                 continue;
+              }
             }
+          }
 
-            // Track hostRef across steps in this scenario
-            if (step.hostRef) {
-                preambleCtx.currentHostRef = step.hostRef;
-                preambleCtx.stepInstanceHostRefs?.set(getStepInstanceKey(step), step.hostRef);
-            }
-
-            const ctx: GatlingGeneratorContext = {
-                declaredAttachments: preambleCtx.declaredAttachments,
-                stepVarName: (i: number): string => `step${i}`,
-                currentHostRef: preambleCtx.currentHostRef,
-                stepInstanceHostRefs: preambleCtx.stepInstanceHostRefs
-            };
-
-            const payloadResult: GatlingPayloadResult = gen.generateDefaultPayload(step, ctx);
-            const payloadVarName: string = payloadResult.payloadVarName;
-
-            emit(`    // Step ${stepIdx + 1}: ${step.stepName || step.stepType}`);
-            emit(`    .exec(`);
-
-            const sessionFnParam: string = `step${stepIdx}`;
-            const sessionFnBody: string[] = [];
-
-            for (const line of payloadResult.code) {
-                sessionFnBody.push(`      ${line}`);
-            }
-
-            if (step.modifyRequests) {
-                for (const mod of step.modifyRequests) {
-                    let modValue: unknown = mod.modifiedValue;
-
-                    if (typeof modValue === 'string' && isStepDataReference(modValue)) {
-                        const ref: {
-                            dataHandlerName: string;
-                            jsonPath: string
-                        } | null = parseStepDataReference(modValue);
-                        if (ref) {
-                            const srcIdx: number | undefined = dataHandlerMap.get(ref.dataHandlerName);
-                            if (srcIdx !== undefined) {
-                                const saveKey: string = `resBody${srcIdx}`;
-                                modValue = generateStepDataRead(sessionFnParam, saveKey, ref.jsonPath);
-                                if ('modifiedParameter' in mod) {
-                                    sessionFnBody.push(`      ${payloadVarName}.${mod.modifiedParameter} = ${modValue};`);
-                                } else if ('jsonPath' in mod) {
-                                    const cleanPath: string = mod.jsonPath.replace(/^\$\./, '');
-                                    const keys: string[] = cleanPath.split('.');
-                                    if (keys.length === 1) {
-                                        sessionFnBody.push(`      ${payloadVarName}.${keys[0]} = ${modValue};`);
-                                    } else {
-                                        const access: string = keys.map((k: string): string => `['${k}']`).join('');
-                                        sessionFnBody.push(`      ${payloadVarName}${access} = ${modValue};`);
-                                    }
-                                }
-                                continue;
-                            }
-                        }
-                    }
-
-                    const modLines: string[] = gen.generateModification(mod, payloadVarName, step, ctx);
-                    for (const line of modLines) {
-                        sessionFnBody.push(`      ${line}`);
-                    }
-                }
-            }
-
-            const saveAsKey: string = `resBody${stepIdx}`;
-            const httpLines: string[] = gen.generateHttpCall(sessionFnParam, sessionFnBody, step, ctx);
-
-            for (const line of httpLines) {
-                emit(`      ${line}`);
-            }
-            emit(`      .check(status().is(${step.returnCode}))`);
-
-            if (step.validateResponse) {
-                for (const v of step.validateResponse) {
-                    const checkCode: string | null = gen.generateValidationCheck(v, '', step, ctx);
-                    if (checkCode) {
-                        emit(`      ${checkCode}`);
-                    }
-                }
-            }
-
-            // Save response body for step data sharing
-            emit(`      .check(bodyString().saveAs('${saveAsKey}'))`);
-
-            emit(`    )`);
-            emit(`    .pause(1)`);
+          const modLines: string[] = gen.generateModification(mod, payloadVarName, step, ctx);
+          for (const line of modLines) {
+            sessionFnBody.push(`      ${line}`);
+          }
         }
-        emit(`;`);
-        emit('}');
-        emit('');
-        functionNames.push(fnName);
+      }
+
+      const saveAsKey: string = `resBody${stepIdx}`;
+
+      // Build check lines that the caller would normally append after the http call
+      const checkLines: string[] = [];
+      checkLines.push(`      .check(status().is(${step.returnCode}))`);
+      if (step.validateResponse) {
+        for (const v of step.validateResponse) {
+          const checkCode: string | null = gen.generateValidationCheck(v, '', step, ctx);
+          if (checkCode) {
+            checkLines.push(`      ${checkCode}`);
+          }
+        }
+      }
+      checkLines.push(`      .check(bodyString().saveAs('${saveAsKey}'))`);
+
+      // If the generator implements the new method, delegate check placement to it
+      if (typeof gen.generateHttpCallWithChecks === 'function') {
+        const httpLines: string[] = gen.generateHttpCallWithChecks(
+          sessionFnParam,
+          sessionFnBody,
+          step,
+          ctx,
+          checkLines
+        );
+        for (const line of httpLines) {
+          emit(`      ${line}`);
+        }
+      } else {
+        const httpLines: string[] = gen.generateHttpCall(sessionFnParam, sessionFnBody, step, ctx);
+        for (const line of httpLines) {
+          emit(`      ${line}`);
+        }
+        for (const line of checkLines) {
+          emit(line);
+        }
+      }
+
+      emit(`    )`);
+      emit(`    .pause(1)`);
     }
-
-    // ── Scenario metadata ──
-    emitScenarioMetadata(
-        scenarios,
-        emit,
-        '// Scenario metadata',
-        escapeJsString,
-        (step: StepData): string => {
-            const gen: GatlingStepGenerator | undefined = gatlingGeneratorRegistry.get(step.stepType);
-            return gen?.getEndpoint?.(step) || `'${escapeJsString(`Unknown step type: ${step.stepType}`)}'`;
-        }
-    );
-
-    // ── Simulation entry ──
-    emit(`// ── Simulation ──`);
-    emit(`export default simulation((setUp) => {`);
-
-    emit(`  const scenarioIndexEnv = getEnvironmentVariable("GATLING_SCENARIO_INDEX");`);
-    emit(`  const scenarioIndex = parseInt(scenarioIndexEnv || "0", 10);`);
+    emit(`;`);
+    emit('}');
     emit('');
+    functionNames.push(fnName);
+  }
 
-    const usersPerSec: string = 'parseInt(getEnvironmentVariable("GATLING_USERS_PER_SEC") || "5", 10)';
-    const duration: string = 'parseInt(getEnvironmentVariable("GATLING_DURATION_SECONDS") || "60", 10)';
-    const maxDuration: string = 'parseInt(getEnvironmentVariable("GATLING_MAX_DURATION_SECONDS") || "120", 10)';
+  // ── Scenario metadata ──
+  emitScenarioMetadata(scenarios, emit, '// Scenario metadata', escapeJsString, (step: StepData): string => {
+    const gen: GatlingStepGenerator | undefined = gatlingGeneratorRegistry.get(step.stepType);
+    return gen?.getEndpoint?.(step) || `'${escapeJsString(`Unknown step type: ${step.stepType}`)}'`;
+  });
 
-    if (functionNames.length === 0) {
-        emit('  // No scenarios generated');
-    } else if (functionNames.length === 1) {
-        emit(`  console.log('');`);
-        emit(`  console.log('='.repeat(60));`);
-        emit(`  console.log('  FunPerf - Gatling Simulation');`);
-        emit(`  console.log('='.repeat(60));`);
-        emit(`  console.log('  Scenario: ' + SCENARIO_METADATA[0].name);`);
-        emit(`  console.log('  Steps:    ' + SCENARIO_METADATA[0].steps.length);`);
-        emit(`  console.log('='.repeat(60));`);
-        emit(`  console.log('');`);
-        emit('');
-        emit(`  setUp(`);
-        emit(`    ${functionNames[0]}()`);
-        emit(`      .injectOpen(constantUsersPerSec(${usersPerSec}).during(${duration}))`);
-        emit(`  )`);
-        emit(`    .maxDuration(${maxDuration});`);
-    } else {
-        emit('  // Print scenario info');
-        emit('  if (scenarioIndex === 0) {');
-        emit("    console.log('');");
-        emit("    console.log('='.repeat(60));");
-        emit("    console.log('  FunPerf - Available Scenarios');");
-        emit("    console.log('='.repeat(60));");
-        emit('    for (let i = 0; i < SCENARIO_METADATA.length; i++) {');
-        emit('      const m = SCENARIO_METADATA[i];');
-        emit(`      console.log('  [' + m.index + '] ' + m.name + ' (' + m.steps.length + ' step(s))');`);
-        emit('    }');
-        emit("    console.log('='.repeat(60));");
-        emit("    console.log('');");
-        emit("    console.log('  Running all scenarios...');");
-        emit("    console.log('');");
-        emit('  } else if (scenarioIndex > 0 && scenarioIndex <= SCENARIO_METADATA.length) {');
-        emit('    const meta = SCENARIO_METADATA[scenarioIndex - 1];');
-        emit("    console.log('');");
-        emit("    console.log('='.repeat(60));");
-        emit("    console.log('  FunPerf - Gatling Simulation');");
-        emit("    console.log('='.repeat(60));");
-        emit(`    console.log('  Scenario Index: ' + meta.index);`);
-        emit(`    console.log('  Scenario Name:  ' + meta.name);`);
-        emit(`    console.log('  Total Steps:    ' + meta.steps.length);`);
-        emit("    console.log('');");
-        emit("    console.log('  Steps:');");
-        emit('    for (let i = 0; i < meta.steps.length; i++) {');
-        emit(`      console.log('    [' + i + '] ' + meta.steps[i].name);`);
-        emit(`      console.log('        -> ' + meta.steps[i].url);`);
-        emit('    }');
-        emit("    console.log('='.repeat(60));");
-        emit("    console.log('');");
-        emit('  }');
-        emit('');
-        emit(`  if (scenarioIndex === 0) {`);
-        emit(`    setUp(`);
-        for (let si: number = 0; si < scenarios.length; si++) {
-            const scenario: Scenario = scenarios[si];
-            const fnName: string = toValidFunctionName(si, scenario.scenarioName);
-            const comma: string = si < scenarios.length - 1 ? ',' : '';
-            emit(`      ${fnName}()`);
-            emit(`        .injectOpen(constantUsersPerSec(${usersPerSec}).during(${duration}))${comma}`);
-        }
-        emit(`    )`);
-        emit(`      .maxDuration(${maxDuration});`);
+  // ── Simulation entry ──
+  emit(`// ── Simulation ──`);
+  emit(`export default simulation((setUp) => {`);
 
-        for (let si: number = 0; si < scenarios.length; si++) {
-            const scenario: Scenario = scenarios[si];
-            const fnName: string = toValidFunctionName(si, scenario.scenarioName);
-            emit(`  } else if (scenarioIndex === ${si + 1}) {`);
-            emit(`    setUp(`);
-            emit(`      ${fnName}()`);
-            emit(`        .injectOpen(constantUsersPerSec(${usersPerSec}).during(${duration}))`);
-            emit(`    )`);
-            emit(`      .maxDuration(${maxDuration});`);
-        }
+  emit(`  const scenarioIndexEnv = getEnvironmentVariable("GATLING_SCENARIO_INDEX");`);
+  emit(`  const scenarioIndex = parseInt(scenarioIndexEnv || "0", 10);`);
+  emit('');
 
-        if (scenarios.length > 0) {
-            emit(`  } else {`);
-            emit(`    console.error(\`Invalid GATLING_SCENARIO_INDEX: \${scenarioIndex}. Valid: 0 (all), 1-${scenarios.length}\`);`);
-            emit(`  }`);
-        }
+  const usersPerSec: string = 'parseInt(getEnvironmentVariable("GATLING_USERS_PER_SEC") || "5", 10)';
+  const duration: string = 'parseInt(getEnvironmentVariable("GATLING_DURATION_SECONDS") || "60", 10)';
+  const maxDuration: string = 'parseInt(getEnvironmentVariable("GATLING_MAX_DURATION_SECONDS") || "120", 10)';
+
+  if (functionNames.length === 0) {
+    emit('  // No scenarios generated');
+  } else if (functionNames.length === 1) {
+    emit(`  console.log('');`);
+    emit(`  console.log('='.repeat(60));`);
+    emit(`  console.log('  FunPerf - Gatling Simulation');`);
+    emit(`  console.log('='.repeat(60));`);
+    emit(`  console.log('  Scenario: ' + SCENARIO_METADATA[0].name);`);
+    emit(`  console.log('  Steps:    ' + SCENARIO_METADATA[0].steps.length);`);
+    emit(`  console.log('='.repeat(60));`);
+    emit(`  console.log('');`);
+    emit('');
+    emit(`  setUp(`);
+    emit(`    ${functionNames[0]}()`);
+    emit(`      .injectOpen(constantUsersPerSec(${usersPerSec}).during(${duration}))`);
+    emit(`  )`);
+    emit(`    .maxDuration(${maxDuration});`);
+  } else {
+    emit('  // Print scenario info');
+    emit('  if (scenarioIndex === 0) {');
+    emit("    console.log('');");
+    emit("    console.log('='.repeat(60));");
+    emit("    console.log('  FunPerf - Available Scenarios');");
+    emit("    console.log('='.repeat(60));");
+    emit('    for (let i = 0; i < SCENARIO_METADATA.length; i++) {');
+    emit('      const m = SCENARIO_METADATA[i];');
+    emit(`      console.log('  [' + m.index + '] ' + m.name + ' (' + m.steps.length + ' step(s))');`);
+    emit('    }');
+    emit("    console.log('='.repeat(60));");
+    emit("    console.log('');");
+    emit("    console.log('  Running all scenarios...');");
+    emit("    console.log('');");
+    emit('  } else if (scenarioIndex > 0 && scenarioIndex <= SCENARIO_METADATA.length) {');
+    emit('    const meta = SCENARIO_METADATA[scenarioIndex - 1];');
+    emit("    console.log('');");
+    emit("    console.log('='.repeat(60));");
+    emit("    console.log('  FunPerf - Gatling Simulation');");
+    emit("    console.log('='.repeat(60));");
+    emit(`    console.log('  Scenario Index: ' + meta.index);`);
+    emit(`    console.log('  Scenario Name:  ' + meta.name);`);
+    emit(`    console.log('  Total Steps:    ' + meta.steps.length);`);
+    emit("    console.log('');");
+    emit("    console.log('  Steps:');");
+    emit('    for (let i = 0; i < meta.steps.length; i++) {');
+    emit(`      console.log('    [' + i + '] ' + meta.steps[i].name);`);
+    emit(`      console.log('        -> ' + meta.steps[i].url);`);
+    emit('    }');
+    emit("    console.log('='.repeat(60));");
+    emit("    console.log('');");
+    emit('  }');
+    emit('');
+    emit(`  if (scenarioIndex === 0) {`);
+    emit(`    setUp(`);
+    for (let si: number = 0; si < scenarios.length; si++) {
+      const scenario: Scenario = scenarios[si];
+      const fnName: string = toValidFunctionName(si, scenario.scenarioName);
+      const comma: string = si < scenarios.length - 1 ? ',' : '';
+      emit(`      ${fnName}()`);
+      emit(`        .injectOpen(constantUsersPerSec(${usersPerSec}).during(${duration}))${comma}`);
+    }
+    emit(`    )`);
+    emit(`      .maxDuration(${maxDuration});`);
+
+    for (let si: number = 0; si < scenarios.length; si++) {
+      const scenario: Scenario = scenarios[si];
+      const fnName: string = toValidFunctionName(si, scenario.scenarioName);
+      emit(`  } else if (scenarioIndex === ${si + 1}) {`);
+      emit(`    setUp(`);
+      emit(`      ${fnName}()`);
+      emit(`        .injectOpen(constantUsersPerSec(${usersPerSec}).during(${duration}))`);
+      emit(`    )`);
+      emit(`      .maxDuration(${maxDuration});`);
     }
 
-    emit('});');
+    if (scenarios.length > 0) {
+      emit(`  } else {`);
+      emit(
+        `    console.error(\`Invalid GATLING_SCENARIO_INDEX: \${scenarioIndex}. Valid: 0 (all), 1-${scenarios.length}\`);`
+      );
+      emit(`  }`);
+    }
+  }
 
-    return lines.join('\n');
+  emit('});');
+
+  return lines.join('\n');
 }
 
 // ── Main ──
 function main(): void {
-    try {
-        const scenariosDir: string = 'tests/scenarios';
-        const scenarios: Scenario[] = loadAllScenarios(scenariosDir);
-        console.log(`\nGenerating Gatling simulation for ${scenarios.length} scenario(s) from ${scenariosDir}/...\n`);
+  try {
+    const scenariosDir: string = 'tests/scenarios';
+    const scenarios: Scenario[] = loadAllScenarios(scenariosDir);
+    console.log(`\nGenerating Gatling simulation for ${scenarios.length} scenario(s) from ${scenariosDir}/...\n`);
 
-        const simulation: string = generateGatlingSimulation(scenarios);
+    const simulation: string = generateGatlingSimulation(scenarios);
 
-        const outDir: string = 'performance_scripts/gatling';
-        const outPath: string = path.join(outDir, 'performance-test.gatling.ts');
-        if (!fs.existsSync(outDir)) {
-            fs.mkdirSync(outDir, {recursive: true});
-        }
-        fs.writeFileSync(outPath, simulation, 'utf-8');
-        console.log(`✓ Generated: ${outPath}\n`);
-        console.log('Run with:');
-        console.log(`  npx gatling run --sources-folder performance_scripts/gatling --simulation performance-test`);
-        console.log(`  GATLING_SCENARIO_INDEX=2 npx gatling run --sources-folder performance_scripts/gatling --simulation performance-test\n`);
-
-        for (let i: number = 0; i < scenarios.length; i++) {
-            const s: Scenario = scenarios[i];
-            const stepCount: number = s.steps.length;
-            const supportedCount: number = s.steps.filter((st: StepData): boolean => gatlingGeneratorRegistry.has(st.stepType)).length;
-            const skippedCount: number = stepCount - supportedCount;
-            
-            if (supportedCount === 0) {
-                console.log(`  [${i + 1}] "${s.scenarioName}": skipped (${stepCount} step(s), no supported step types)`);
-                continue;
-            }
-            
-            // Log skipped steps if any
-            if (skippedCount > 0) {
-                const skippedSteps: string[] = s.steps
-                    .filter((st: StepData): boolean => !gatlingGeneratorRegistry.has(st.stepType))
-                    .map((st: StepData) => {
-                        const stepName = st.stepName || st.stepType;
-                        return `  - "${stepName}" (${st.stepType})`;
-                    });
-                console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s), ${skippedCount} skipped${skippedCount > 1 ? 's' : ''} (${skippedSteps.join(', ')})`);
-            } else {
-                console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s)`);
-            }
-        }
-    } catch (error) {
-        console.error('Failed to generate Gatling simulation:', error instanceof Error ? error.message : String(error));
-        process.exit(1);
+    const outDir: string = 'performance_scripts/gatling';
+    const outPath: string = path.join(outDir, 'performance-test.gatling.ts');
+    if (!fs.existsSync(outDir)) {
+      fs.mkdirSync(outDir, { recursive: true });
     }
+    fs.writeFileSync(outPath, simulation, 'utf-8');
+    console.log(`✓ Generated: ${outPath}\n`);
+    console.log('Run with:');
+    console.log(`  npx gatling run --sources-folder performance_scripts/gatling --simulation performance-test`);
+    console.log(
+      `  GATLING_SCENARIO_INDEX=2 npx gatling run --sources-folder performance_scripts/gatling --simulation performance-test\n`
+    );
+
+    for (let i: number = 0; i < scenarios.length; i++) {
+      const s: Scenario = scenarios[i];
+      const stepCount: number = s.steps.length;
+      const supportedCount: number = s.steps.filter((st: StepData): boolean =>
+        gatlingGeneratorRegistry.has(st.stepType)
+      ).length;
+      const skippedCount: number = stepCount - supportedCount;
+
+      if (supportedCount === 0) {
+        console.log(`  [${i + 1}] "${s.scenarioName}": skipped (${stepCount} step(s), no supported step types)`);
+        continue;
+      }
+
+      // Log skipped steps if any
+      if (skippedCount > 0) {
+        const skippedSteps: string[] = s.steps
+          .filter((st: StepData): boolean => !gatlingGeneratorRegistry.has(st.stepType))
+          .map((st: StepData) => {
+            const stepName = st.stepName || st.stepType;
+            return `  - "${stepName}" (${st.stepType})`;
+          });
+        console.log(
+          `  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s), ${skippedCount} skipped${skippedCount > 1 ? 's' : ''} (${skippedSteps.join(', ')})`
+        );
+      } else {
+        console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s)`);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to generate Gatling simulation:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
 }
 
 main();

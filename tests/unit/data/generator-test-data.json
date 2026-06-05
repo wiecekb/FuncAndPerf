@@ -1,0 +1,365 @@
+[
+  {
+    "scenarioName": "Calculator: jsonPath modifications",
+    "steps": [
+      {
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "additionalData": {
+          "operation": "add"
+        },
+        "returnCode": 200,
+        "stepName": "Add 3 + 5 = 8 jsonPath style",
+        "modifyRequests": [
+          {
+            "jsonPath": "$.a",
+            "modifiedValue": "3"
+          },
+          {
+            "jsonPath": "$.b",
+            "modifiedValue": "5"
+          }
+        ],
+        "validateResponse": [
+          {
+            "jsonPath": "$.result",
+            "validatedParameterValue": "8",
+            "validationType": "equal"
+          },
+          {
+            "jsonPath": "$.operation",
+            "validatedParameterValue": "add",
+            "validationType": "include"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenarioName": "Calculator: parameter modifications",
+    "steps": [
+      {
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "additionalData": {
+          "operation": "multiply"
+        },
+        "returnCode": 200,
+        "stepName": "Multiply 4 * 3 = 12",
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "4"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "3"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "12"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "multiply"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenarioName": "Authorized Calculator: add",
+    "steps": [
+      {
+        "stepType": "AUTHORIZED_CALCULATOR",
+        "hostRef": "calcApi",
+        "additionalData": {
+          "operation": "add"
+        },
+        "returnCode": 200,
+        "stepName": "Authorized add 10 + 5 = 15",
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "10"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "5"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "15"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "add"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenarioName": "Browser: basic actions",
+    "steps": [
+      {
+        "stepType": "BROWSER",
+        "hostRef": "frontendMain",
+        "returnCode": 200,
+        "stepName": "Browser basic actions",
+        "additionalData": {
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/"
+            },
+            {
+              "kind": "action",
+              "action": "click",
+              "selector": {
+                "kind": "css",
+                "value": "#submit"
+              },
+              "timeoutMs": 2500
+            },
+            {
+              "kind": "action",
+              "action": "fill",
+              "selector": {
+                "kind": "label",
+                "text": "Search"
+              },
+              "value": "test query",
+              "timeoutMs": 5000
+            },
+            {
+              "kind": "action",
+              "action": "press",
+              "selector": {
+                "kind": "testId",
+                "value": "search-input"
+              },
+              "key": "Enter"
+            },
+            {
+              "kind": "action",
+              "action": "waitFor",
+              "selector": {
+                "kind": "text",
+                "value": "Loading complete"
+              },
+              "timeoutMs": 5000
+            },
+            {
+              "kind": "action",
+              "action": "screenshot"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "scenarioName": "Browser: assertions and extracts",
+    "steps": [
+      {
+        "stepType": "BROWSER",
+        "hostRef": "frontendMain",
+        "returnCode": 200,
+        "stepName": "Browser assertions",
+        "additionalData": {
+          "baseUrl": "https://example.test",
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/dashboard"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "/dashboard"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toBeVisible",
+              "selector": {
+                "kind": "role",
+                "role": "heading",
+                "name": "Dashboard"
+              }
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveText",
+              "selector": {
+                "kind": "css",
+                "value": "h1"
+              },
+              "expected": "Dashboard"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toContainText",
+              "selector": {
+                "kind": "css",
+                "value": ".message"
+              },
+              "expected": "Ready"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveValue",
+              "selector": {
+                "kind": "label",
+                "text": "Query"
+              },
+              "expected": "k6"
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "currentUrl"
+            },
+            {
+              "kind": "extract",
+              "extract": "textContent",
+              "selector": {
+                "kind": "css",
+                "value": "h1"
+              },
+              "saveAs": "title"
+            },
+            {
+              "kind": "extract",
+              "extract": "inputValue",
+              "selector": {
+                "kind": "label",
+                "text": "Query"
+              },
+              "saveAs": "query"
+            },
+            {
+              "kind": "extract",
+              "extract": "href",
+              "selector": {
+                "kind": "css",
+                "value": "a.next"
+              },
+              "saveAs": "nextHref"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "scenarioName": "Browser: multi-step",
+    "steps": [
+      {
+        "stepType": "BROWSER",
+        "hostRef": "frontendMain",
+        "returnCode": 200,
+        "stepName": "Step 1: home and extract",
+        "dataHandlerName": "stepOne",
+        "additionalData": {
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/"
+            },
+            {
+              "kind": "extract",
+              "extract": "url",
+              "saveAs": "homeUrl"
+            }
+          ]
+        }
+      },
+      {
+        "stepType": "BROWSER",
+        "hostRef": "frontendDocs",
+        "returnCode": 200,
+        "stepName": "Step 2: docs and verify",
+        "dataHandlerName": "stepTwo",
+        "additionalData": {
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/docs"
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "/docs"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "scenarioName": "Multi-step with step data reference",
+    "steps": [
+      {
+        "stepName": "Step 1: Add 10 + 20 = 30",
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "additionalData": {
+          "operation": "add"
+        },
+        "dataHandlerName": "firstAdd",
+        "returnCode": 200,
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "10"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "20"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "30"
+          }
+        ]
+      },
+      {
+        "stepName": "Step 2: Multiply using step data ref",
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "additionalData": {
+          "operation": "multiply"
+        },
+        "returnCode": 200,
+        "modifyRequests": [
+          {
+            "jsonPath": "$.a",
+            "modifiedValue": "firstAdd.response.$.result"
+          },
+          {
+            "jsonPath": "$.b",
+            "modifiedValue": "2"
+          }
+        ],
+        "validateResponse": [
+          {
+            "jsonPath": "$.result",
+            "validatedParameterValue": "60",
+            "validationType": "equal"
+          }
+        ]
+      }
+    ]
+  }
+]

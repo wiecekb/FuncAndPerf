@@ -1,16 +1,18 @@
 export class AuthorizedCalcRequestBuilder {
-    private a: number = 0;
-    private b: number = 0;
+  private _a: number = 0;
+  private _b: number = 0;
 
-    setA(value: number): void {
-        this.a = value;
-    }
+  withA(value: number): this {
+    this._a = value;
+    return this;
+  }
 
-    setB(value: number): void {
-        this.b = value;
-    }
+  withB(value: number): this {
+    this._b = value;
+    return this;
+  }
 
-    build(): Record<string, number> {
-        return {a: this.a, b: this.b};
-    }
+  build(): Record<string, number> {
+    return { a: this._a, b: this._b };
+  }
 }
