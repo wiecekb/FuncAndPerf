@@ -22,6 +22,7 @@
     "k6:browser:generate": "npx tsx scripts/generate-k6-unified.ts --type browser",
     "k6:hybrid:generate": "npx tsx scripts/generate-k6-unified.ts --type hybrid",
     "k6:all:generate": "npx tsx scripts/generate-k6-unified.ts --type all",
+    "cucumber:generate": "npx tsx scripts/generate-cucumber.ts",
     "k6:run": "K6_SCENARIO_INDEX=1 K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_OPEN=true k6 run --out web-dashboard performance_scripts/k6/performance-test.js",
     "k6:browser:run": "K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=results/k6-browser-dashboard.html k6 run --out web-dashboard performance_scripts/k6/browser-performance-test.js",
     "k6:browser:run:live": "K6_BROWSER_MAX_DURATION=2m K6_BROWSER_VUS=2 K6_BROWSER_ITERATIONS=500 K6_BROWSER_SCENARIO_INDEX=3 K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_OPEN=true k6 run --out web-dashboard performance_scripts/k6/browser-performance-test.js",
@@ -37,7 +38,7 @@
     "lint:fix": "eslint src scripts tests playwright.config.ts playwright.unit.config.ts --ext .ts --fix",
     "format": "prettier --write \"**/*.ts\"",
     "format:check": "prettier --check \"**/*.ts\"",
-    "clean": "npx rimraf allure-results allure-report playwright-report playwright-report-unit test-results test-results-parsed.json test-scenarios-temp.json scripts/performance-test.js results performance_scripts gatling/performance-test.gatling.ts gatling-results target"
+    "clean": "npx rimraf allure-results allure-report playwright-report playwright-report-unit test-results test-results-parsed.json test-scenarios-temp.json scripts/performance-test.js results performance_scripts gatling/performance-test.gatling.ts gatling-results target features"
   },
   "dependencies": {
     "@gatling.io/core": "^3.15.101",

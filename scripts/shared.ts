@@ -13,19 +13,19 @@ export function buildDataHandlerMap(steps: StepData[]): Map<string, number> {
   return map;
 }
 
-export function loadAllScenarios(dirPath: string): Scenario[] {
+export function loadAllScenarios(dirPath: string): Map<string, Scenario[]> {
   const files: string[] = fs.readdirSync(dirPath).filter((f: string): boolean => f.endsWith('.json'));
-  const allScenarios: Scenario[] = [];
+  const fileToScenarios = new Map<string, Scenario[]>();
   for (const file of files) {
     const filePath: string = path.join(dirPath, file);
     try {
       const scenarios: Scenario[] = loadScenarios(filePath);
-      allScenarios.push(...scenarios);
+      fileToScenarios.set(file, scenarios);
     } catch (e) {
       console.warn(`Warning: Could not load scenarios from ${filePath}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return allScenarios;
+  return fileToScenarios;
 }
 
 export function isStepDataReference(value: string): boolean {
