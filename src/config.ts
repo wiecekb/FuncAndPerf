@@ -1,9 +1,18 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import type { BrowserSelector } from './test-modules/browser/types';
 
 interface HostsConfig {
   [alias: string]: string;
+}
+
+interface BrowserSelectorConfig {
+  [name: string]: BrowserSelector | BrowserSelectorConfig;
+}
+
+interface BrowserConfig {
+  selectors: BrowserSelectorConfig;
 }
 
 interface TestConfig {
@@ -25,6 +34,7 @@ interface AuthorizedCalculatorConfig {
 
 interface AppConfig {
   hosts: HostsConfig;
+  browser: BrowserConfig;
   test: TestConfig;
   authorized_calculator: AuthorizedCalculatorConfig;
 }
@@ -33,6 +43,7 @@ const configPath: string = path.resolve('config.yaml');
 
 const defaultConfig: AppConfig = {
   hosts: {},
+  browser: { selectors: {} },
   test: { file_path: 'tests/scenarios/calculator-demo.json', timeout_ms: 30000, allow_auth_demo: false },
   authorized_calculator: {
     token_ttl_seconds: 3600,
@@ -59,6 +70,16 @@ if (fs.existsSync(configPath)) {
   if (raw?.hosts) {
     defaultConfig.hosts = { ...defaultConfig.hosts, ...raw.hosts };
   }
+  if (raw?.browser) {
+    defaultConfig.browser = {
+      ...defaultConfig.browser,
+      ...raw.browser,
+      selectors: {
+        ...defaultConfig.browser.selectors,
+        ...raw.browser.selectors,
+      },
+    };
+  }
   if (raw?.test) {
     defaultConfig.test = { ...defaultConfig.test, ...raw.test };
   }
@@ -83,4 +104,12 @@ if (process.env.TEST_TIMEOUT_MS) {
 }
 
 export const config: AppConfig = defaultConfig;
-export type { AppConfig, TestConfig, HostsConfig, AuthorizedCalculatorConfig, AuthorizedCalculatorInstanceOverride };
+export type {
+  AppConfig,
+  BrowserConfig,
+  BrowserSelectorConfig,
+  TestConfig,
+  HostsConfig,
+  AuthorizedCalculatorConfig,
+  AuthorizedCalculatorInstanceOverride,
+};

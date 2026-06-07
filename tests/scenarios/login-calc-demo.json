@@ -1,0 +1,126 @@
+[
+  {
+    "scenarioName": "Login + Calculator: Add then Multiply Result",
+    "steps": [
+      {
+        "stepName": "Calculator: 10 + 5 = 15 (save result)",
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "dataHandlerName": "calcAddStep",
+        "returnCode": 200,
+        "additionalData": {
+          "operation": "add"
+        },
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "10"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "5"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "15"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "add"
+          }
+        ]
+      },
+      {
+        "stepName": "Browser: login to web-scraping.dev",
+        "stepType": "BROWSER",
+        "hostRef": "webScrapingDev",
+        "dataHandlerName": "loginStep",
+        "returnCode": 200,
+        "additionalData": {
+          "baseUrl": "https://web-scraping.dev",
+          "screenshot": {
+            "enabled": true,
+            "mode": "onStepEnd",
+            "fullPage": false,
+            "namePrefix": "login-calc-demo"
+          },
+          "instructions": [
+            {
+              "kind": "action",
+              "action": "goto",
+              "value": "/login",
+              "timeoutMs": 60000
+            },
+            {
+              "kind": "action",
+              "action": "fill",
+              "selector": {
+                "kind": "css",
+                "value": "input[name=\"username\"]"
+              },
+              "value": "user123",
+              "timeoutMs": 60000
+            },
+            {
+              "kind": "action",
+              "action": "fill",
+              "selector": {
+                "kind": "css",
+                "value": "input[name=\"password\"]"
+              },
+              "value": "password",
+              "timeoutMs": 60000
+            },
+            {
+              "kind": "action",
+              "action": "click",
+              "selector": {
+                "kind": "css",
+                "value": "button[type=\"submit\"]"
+              },
+              "timeoutMs": 60000
+            },
+            {
+              "kind": "assertion",
+              "assertion": "toHaveURL",
+              "expected": "https://web-scraping.dev/login",
+              "timeoutMs": 60000
+            }
+          ]
+        }
+      },
+      {
+        "stepName": "Calculator: multiply saved result (15) by 3",
+        "stepType": "CALCULATOR",
+        "hostRef": "calcApi",
+        "dataHandlerName": "calcMultiplyStep",
+        "returnCode": 200,
+        "additionalData": {
+          "operation": "multiply"
+        },
+        "modifyRequests": [
+          {
+            "modifiedParameter": "a",
+            "modifiedValue": "calcAddStep.response.$.result"
+          },
+          {
+            "modifiedParameter": "b",
+            "modifiedValue": "3"
+          }
+        ],
+        "validateResponse": [
+          {
+            "validatedParameter": "result",
+            "validatedParameterValue": "45"
+          },
+          {
+            "validatedParameter": "operation",
+            "validatedParameterValue": "multiply"
+          }
+        ]
+      }
+    ]
+  }
+]

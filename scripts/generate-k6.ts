@@ -7,10 +7,8 @@ import {
   buildDataHandlerMap,
   emitScenarioMetadata,
   isStepDataReference,
-  loadAllScenarios,
   parseStepDataReference,
 } from './shared';
-import * as fs from 'fs';
 import { getStepInstanceKey } from '../src/scenario/instances';
 
 function toValidFunctionName(name: string): string {
@@ -324,60 +322,3 @@ export function generateK6Script(scenarios: Scenario[]): string {
 
   return lines.join('\n');
 }
-
-// ── Main ──
-function main(): void {
-  try {
-    const scenariosDir: string = 'tests/scenarios';
-    const scenarios: Scenario[] = loadAllScenarios(scenariosDir);
-    console.log(`\nGenerating k6 script for ${scenarios.length} scenario(s) from ${scenariosDir}/...\n`);
-
-    const k6Script: string = generateK6Script(scenarios);
-    const outDir: string = 'performance_scripts/k6';
-    const outPath: string = `${outDir}/performance-test.js`;
-
-    if (!fs.existsSync(outDir)) {
-      fs.mkdirSync(outDir, { recursive: true });
-    }
-    fs.writeFileSync(outPath, k6Script, 'utf-8');
-    console.log(`✓ Generated: ${outPath}\n`);
-    console.log('Run with:');
-    console.log(`  k6 run ${outPath}`);
-    console.log(`  k6 run --out web-dashboard ${outPath}`);
-    console.log(`  k6 run --out json=results/perf.json ${outPath}\n`);
-
-    for (let i: number = 0; i < scenarios.length; i++) {
-      const s: Scenario = scenarios[i];
-      const stepCount: number = s.steps.length;
-      const supportedCount: number = s.steps.filter((st: StepData): boolean =>
-        k6GeneratorRegistry.has(st.stepType)
-      ).length;
-      const skippedCount: number = stepCount - supportedCount;
-
-      if (supportedCount === 0) {
-        console.log(`  [${i + 1}] "${s.scenarioName}": skipped (${stepCount} step(s), no supported step types)`);
-        continue;
-      }
-
-      // Log skipped steps if any
-      if (skippedCount > 0) {
-        const skippedSteps: string[] = s.steps
-          .filter((st: StepData): boolean => !k6GeneratorRegistry.has(st.stepType))
-          .map((st: StepData) => {
-            const stepName = st.stepName || st.stepType;
-            return `  - "${stepName}" (${st.stepType})`;
-          });
-        console.log(
-          `  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s), ${skippedCount} skipped${skippedCount > 1 ? 's' : ''} (${skippedSteps.join(', ')})`
-        );
-      } else {
-        console.log(`  [${i + 1}] "${s.scenarioName}": ${stepCount} step(s)`);
-      }
-    }
-  } catch (error) {
-    console.error('Failed to generate k6 script:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
-}
-
-main();

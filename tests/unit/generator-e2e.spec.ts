@@ -357,8 +357,8 @@ test.describe('k6 browser script generator E2E', (): void => {
     expect(script).toContain("console.log('Step: Step 1: home and extract [default]');");
     expect(script).toContain("console.log('Step: Step 2: docs and verify [default]');");
 
-    // Each step in multi-step browser scenario gets an undefined baseUrl variable
-    expect(script).toContain('const currentStepBaseUrl_1 = undefined;');
+    // Each step in multi-step browser scenario resolves its hostRef alias from HOSTS.
+    expect(script).toContain("const currentStepBaseUrl_1 = HOSTS['frontendDocs'];");
   });
 
   test('generateScript filters out non-browser-only scenarios (calculator, authorized-calculator, mixed)', (): void => {

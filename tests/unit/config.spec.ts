@@ -6,6 +6,7 @@ import {
 } from '../../src/test-modules/authorized-calculator/config';
 import type { StepData } from '../../src/scenario/loader';
 import { ScenarioType } from '../../src/scenario/types';
+import { resolveBrowserSelectorReference } from '../../src/test-modules/browser/selectors';
 
 test.describe('Config helpers', (): void => {
   test('parsePositiveIntegerEnv parses positive integer', (): void => {
@@ -27,6 +28,28 @@ test.describe('Config helpers', (): void => {
   test('parsePositiveIntegerEnv rejects partially numeric value', (): void => {
     expect(() => parsePositiveIntegerEnv('1000ms', 'TEST_TIMEOUT_MS')).toThrow(
       'TEST_TIMEOUT_MS must be a positive integer, got: 1000ms'
+    );
+  });
+});
+
+test.describe('Browser selector config', (): void => {
+  test('config.yaml has browser selectors map', (): void => {
+    expect(config.browser.selectors).toBeDefined();
+    expect(config.browser.selectors).toHaveProperty('mainPage');
+  });
+
+  test('resolveBrowserSelectorReference returns nested selector from config.yaml', (): void => {
+    expect(resolveBrowserSelectorReference('mainPage.heading')).toEqual({ kind: 'css', value: 'h1' });
+    expect(resolveBrowserSelectorReference('mainPage.docsLink')).toEqual({
+      kind: 'role',
+      role: 'link',
+      name: 'Docs',
+    });
+  });
+
+  test('resolveBrowserSelectorReference rejects unknown selector', (): void => {
+    expect(() => resolveBrowserSelectorReference('mainPage.unknown')).toThrow(
+      "Browser selector reference 'mainPage.unknown' not found in config.yaml browser.selectors"
     );
   });
 });

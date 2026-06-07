@@ -1,10 +1,12 @@
 import { type Scenario, type StepData } from '../src/scenario/loader';
 import { ScenarioType } from '../src/scenario/types';
 import { loadAllScenarios } from './shared';
-import type { BrowserAdditionalData, BrowserInstruction, BrowserSelector } from '../src/test-modules/browser/types';
+import type { BrowserAdditionalData, BrowserInstruction, BrowserSelectorInput } from '../src/test-modules/browser/types';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
 import { getStepInstanceName } from '../src/scenario/instances';
+import { config } from '../src/config';
+import { resolveBrowserSelector } from '../src/test-modules/browser/selectors';
 
 function printHelp(): void {
   console.log('k6/browser generator help');
@@ -47,20 +49,21 @@ export function escapeJsString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
 }
 
-export function selectorToLocatorExpr(selector: BrowserSelector): string {
-  switch (selector.kind) {
+export function selectorToLocatorExpr(selector: BrowserSelectorInput): string {
+  const resolvedSelector = resolveBrowserSelector(selector);
+  switch (resolvedSelector.kind) {
     case 'role':
-      return `page.getByRole('${escapeJsString(selector.role)}', { name: ${selector.name ? `'${escapeJsString(selector.name)}'` : 'undefined'}, exact: ${selector.exact ?? false} })`;
+      return `page.getByRole('${escapeJsString(resolvedSelector.role)}', { name: ${resolvedSelector.name ? `'${escapeJsString(resolvedSelector.name)}'` : 'undefined'}, exact: ${resolvedSelector.exact ?? false} })`;
     case 'label':
-      return `page.getByLabel('${escapeJsString(selector.text)}', { exact: ${selector.exact ?? false} })`;
+      return `page.getByLabel('${escapeJsString(resolvedSelector.text)}', { exact: ${resolvedSelector.exact ?? false} })`;
     case 'testId':
-      return `page.getByTestId('${escapeJsString(selector.value)}')`;
+      return `page.getByTestId('${escapeJsString(resolvedSelector.value)}')`;
     case 'text':
-      return `page.getByText('${escapeJsString(selector.value)}', { exact: ${selector.exact ?? false} })`;
+      return `page.getByText('${escapeJsString(resolvedSelector.value)}', { exact: ${resolvedSelector.exact ?? false} })`;
     case 'css':
-      return `page.locator('${escapeJsString(selector.value)}')`;
+      return `page.locator('${escapeJsString(resolvedSelector.value)}')`;
     case 'xpath':
-      return `page.locator('xpath=${escapeJsString(selector.value)}')`;
+      return `page.locator('xpath=${escapeJsString(resolvedSelector.value)}')`;
   }
 }
 
@@ -216,6 +219,8 @@ export function generateScript(scenarios: Scenario[]): string {
   emit('import { browser } from "k6/browser";');
   emit('import { check, sleep, group } from "k6";');
   emit('');
+  emit(`const HOSTS = ${JSON.stringify(config.hosts || {})};`);
+  emit('');
   emit('export const options = {');
   emit('  scenarios: {');
   emit('    browser: {');
@@ -235,7 +240,22 @@ export function generateScript(scenarios: Scenario[]): string {
   emit('  if (refMatch && globalThis.__ctx && Object.prototype.hasOwnProperty.call(globalThis.__ctx, refMatch[1])) {');
   emit('    return String(globalThis.__ctx[refMatch[1]]);');
   emit('  }');
+  emit('  const stepRefMatch = value.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\\.([a-zA-Z_][a-zA-Z0-9_]*)(?:\\.(\\$\\..+))?$/);');
+  emit('  if (stepRefMatch && globalThis.__stepData) {');
+  emit('    const record = globalThis.__stepData[stepRefMatch[1]];');
+  emit('    const source = record && record[stepRefMatch[2]];');
+  emit('    if (source !== undefined && source !== null) {');
+  emit('      const resolved = stepRefMatch[3] ? readJsonPath(source, stepRefMatch[3]) : source;');
+  emit('      if (resolved !== undefined && resolved !== null) return String(resolved);');
+  emit('    }');
+  emit('  }');
   emit('  return value;');
+  emit('}');
+  emit('');
+  emit('function readJsonPath(source, jsonPath) {');
+  emit('  const cleanPath = String(jsonPath).replace(/^\\$\\./, "");');
+  emit('  if (!cleanPath) return source;');
+  emit('  return cleanPath.split(".").reduce((current, key) => current == null ? undefined : current[key], source);');
   emit('}');
   emit('');
   emit('function resolveUrl(value, stepBaseUrl) {');
@@ -294,6 +314,8 @@ export function generateScript(scenarios: Scenario[]): string {
     emit('  }');
     emit('  const ctx = globalThis.__ctx || {};');
     emit('  globalThis.__ctx = ctx;');
+    emit('  const stepData = globalThis.__stepData || {};');
+    emit('  globalThis.__stepData = stepData;');
     emit('  try {');
 
     for (let s = 0; s < scenario.steps.length; s++) {
@@ -307,9 +329,15 @@ export function generateScript(scenarios: Scenario[]): string {
       emit('    {');
       emit(`      console.log('Step: ${escapeJsString(stepName)} [${escapeJsString(stepInstanceName)}]');`);
       emit(`      const page = await getPageForStepInstance('${escapeJsString(stepInstanceName)}');`);
+      emit('      const ctxBefore = Object.assign({}, ctx);');
       const stepBaseUrlVarName = `currentStepBaseUrl_${s}`;
+      const browserBaseUrlExpr: string = additionalData.baseUrl
+        ? `'${escapeJsString(additionalData.baseUrl)}'`
+        : step.hostRef
+          ? `HOSTS['${escapeJsString(step.hostRef)}']`
+          : 'undefined';
       emit(
-        `      const ${stepBaseUrlVarName} = ${additionalData.baseUrl ? `'${escapeJsString(additionalData.baseUrl)}'` : 'undefined'};`
+        `      const ${stepBaseUrlVarName} = ${browserBaseUrlExpr};`
       );
       for (let ii = 0; ii < additionalData.instructions.length; ii++) {
         const instruction = additionalData.instructions[ii] as BrowserInstruction;
@@ -317,6 +345,15 @@ export function generateScript(scenarios: Scenario[]): string {
         for (const line of generated) {
           emit(`      ${line}`);
         }
+      }
+      if (step.dataHandlerName) {
+        emit('      const extractedValues = {};');
+        emit('      for (const key of Object.keys(ctx)) {');
+        emit('        if (ctxBefore[key] !== ctx[key]) extractedValues[key] = ctx[key];');
+        emit('      }');
+        emit(
+          `      stepData['${escapeJsString(step.dataHandlerName)}'] = { request: { instructionsCount: ${additionalData.instructions.length} }, response: { currentUrl: page.url(), extracted: extractedValues } };`
+        );
       }
       emit('    }');
       emit('');

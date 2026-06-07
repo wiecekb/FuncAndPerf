@@ -15,7 +15,7 @@ export function setNestedValueCode(objVar: string, path: string, formattedValue:
   const cleanPath: string = path.replace(/^\$\./, '');
   const keys: string[] = cleanPath.split('.');
   if (keys.length === 1) {
-    return `${objVar}['${escapeJsString(keys[0])}'] = ${formattedValue};`;
+    return `(${objVar} as any)['${escapeJsString(keys[0])}'] = ${formattedValue};`;
   }
   const parentInitializers: string = keys
     .slice(0, -1)
@@ -25,7 +25,7 @@ export function setNestedValueCode(objVar: string, path: string, formattedValue:
     })
     .join(' ');
   const lastKey: string = escapeJsString(keys[keys.length - 1]);
-  return `{ let target = ${objVar}; ${parentInitializers} target['${lastKey}'] = ${formattedValue}; }`;
+  return `{ let target = ${objVar} as any; ${parentInitializers} target['${lastKey}'] = ${formattedValue}; }`;
 }
 
 export function generateModification(

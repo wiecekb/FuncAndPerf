@@ -1,7 +1,23 @@
 hosts:
   frontendMain: https://playwright.dev
   frontendDocs: https://playwright.dev
+  webScrapingDev: https://web-scraping.dev
   calcApi: http://localhost:3000
+
+browser:
+  selectors:
+    mainPage:
+      docsLink:
+        kind: role
+        role: link
+        name: Docs
+      heading:
+        kind: css
+        value: h1
+    apiPage:
+      heading:
+        kind: css
+        value: h1
 
 test:
   file_path: tests/scenarios/calculator-demo.json

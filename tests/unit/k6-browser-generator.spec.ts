@@ -84,6 +84,13 @@ test.describe('k6 browser generator helpers', (): void => {
     }
   });
 
+  test('selectorToLocatorExpr resolves browser selector reference from config.yaml', (): void => {
+    expect(selectorToLocatorExpr('mainPage.heading')).toBe("page.locator('h1')");
+    expect(selectorToLocatorExpr('mainPage.docsLink')).toBe(
+      "page.getByRole('link', { name: 'Docs', exact: false })"
+    );
+  });
+
   test('generateInstructionLines emits browser action lines', (): void => {
     const instructions: BrowserInstruction[] = [
       { kind: 'action', action: 'goto', value: '/dashboard' },
@@ -233,7 +240,7 @@ test.describe('k6 browser script generator', (): void => {
     expect(script).toContain("const base = stepBaseUrl || __ENV.K6_BROWSER_BASE_URL || 'http://localhost:3000';");
   });
 
-  test('generateScript currently does not resolve browser hostRef aliases', (): void => {
+  test('generateScript resolves browser hostRef aliases', (): void => {
     const script: string = generateScript([
       scenario({
         scenarioName: 'Browser host ref',
@@ -249,8 +256,7 @@ test.describe('k6 browser script generator', (): void => {
       }),
     ]);
 
-    expect(script).toContain('const currentStepBaseUrl_0 = undefined;');
-    expect(script).not.toContain('HOSTS');
-    expect(script).not.toContain("HOSTS['docs']");
+    expect(script).toContain('const HOSTS =');
+    expect(script).toContain("const currentStepBaseUrl_0 = HOSTS['docs'];");
   });
 });

@@ -39,3 +39,20 @@ export interface K6StepGenerator {
 
   getEndpoint?(step: StepData): string;
 }
+
+// ── Browser generator interface ──
+
+export interface K6BrowserGeneratorContext {
+  declaredAttachments: Set<string>;
+  stepVarName(stepIndex: number): string;
+  currentHostRef?: string;
+  stepInstanceHostRefs?: Map<string, string>;
+}
+
+export interface K6BrowserStepGenerator {
+  readonly stepType: string;
+
+  generatePreamble?(step: StepData, ctx: K6BrowserGeneratorContext): string[];
+
+  generateBrowserInstructions(step: StepData, ctx: K6BrowserGeneratorContext): string[];
+}

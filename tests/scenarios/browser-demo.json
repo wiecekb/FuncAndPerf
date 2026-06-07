@@ -29,11 +29,7 @@
             {
               "kind": "action",
               "action": "click",
-              "selector": {
-                "kind": "role",
-                "role": "link",
-                "name": "Docs"
-              }
+              "selector": "mainPage.docsLink"
             },
             {
               "kind": "assertion",
@@ -43,10 +39,7 @@
             {
               "kind": "assertion",
               "assertion": "toContainText",
-              "selector": {
-                "kind": "css",
-                "value": "h1"
-              },
+              "selector": "mainPage.heading",
               "expected": "Installation"
             },
             {
@@ -93,10 +86,7 @@
             {
               "kind": "assertion",
               "assertion": "toContainText",
-              "selector": {
-                "kind": "css",
-                "value": "h1"
-              },
+              "selector": "apiPage.heading",
               "expected": "Playwright"
             },
             {
@@ -138,11 +128,7 @@
             {
               "kind": "action",
               "action": "click",
-              "selector": {
-                "kind": "role",
-                "role": "link",
-                "name": "Docs"
-              }
+              "selector": "mainPage.docsLink"
             },
             {
               "kind": "extract",
@@ -179,10 +165,7 @@
             {
               "kind": "assertion",
               "assertion": "toContainText",
-              "selector": {
-                "kind": "css",
-                "value": "h1"
-              },
+              "selector": "mainPage.heading",
               "expected": "Installation"
             }
           ]

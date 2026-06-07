@@ -1,12 +1,13 @@
 import { expect as pwExpect, Locator, Page } from '@playwright/test';
 import type { StepData } from '../../scenario/loader';
-import type { BrowserAdditionalData, BrowserInstruction, BrowserSelector, BrowserScreenshotConfig } from './types';
+import type { BrowserAdditionalData, BrowserInstruction, BrowserSelectorInput, BrowserScreenshotConfig } from './types';
 import { StepDataRecord, stepDataRegistry } from '../../scenario/data/registry';
 import { isReference, resolveReference } from '../../scenario/data/resolve';
 import { attachScreenshot } from '../../allure/helpers';
 import { config } from '../../config';
 import { resolveHostRef } from '../../scenario/loader';
 import type { ScenarioExecutionContext } from '../../scenario/execution-context';
+import { resolveBrowserSelector } from './selectors';
 
 const BROWSER_CTX_HANDLER_NAME = '__browserCtx';
 
@@ -50,20 +51,24 @@ function resolveString(value?: string): string | undefined {
   return isReference(value) ? String(resolveReference(value)) : value;
 }
 
-function toLocator(page: Page, selector: BrowserSelector): Locator {
-  switch (selector.kind) {
+function toLocator(page: Page, selector: BrowserSelectorInput): Locator {
+  const resolvedSelector = resolveBrowserSelector(selector);
+  switch (resolvedSelector.kind) {
     case 'role':
-      return page.getByRole(selector.role as never, { name: selector.name, exact: selector.exact });
+      return page.getByRole(resolvedSelector.role as never, {
+        name: resolvedSelector.name,
+        exact: resolvedSelector.exact,
+      });
     case 'label':
-      return page.getByLabel(selector.text, { exact: selector.exact });
+      return page.getByLabel(resolvedSelector.text, { exact: resolvedSelector.exact });
     case 'testId':
-      return page.getByTestId(selector.value);
+      return page.getByTestId(resolvedSelector.value);
     case 'text':
-      return page.getByText(selector.value, { exact: selector.exact });
+      return page.getByText(resolvedSelector.value, { exact: resolvedSelector.exact });
     case 'css':
-      return page.locator(selector.value);
+      return page.locator(resolvedSelector.value);
     case 'xpath':
-      return page.locator(`xpath=${selector.value}`);
+      return page.locator(`xpath=${resolvedSelector.value}`);
   }
 }
 
@@ -118,11 +123,11 @@ export async function executeBrowserStep(
     const instruction = additionalData.instructions[idx] as BrowserInstruction;
     if (instruction.kind === 'action') {
       switch (instruction.action) {
-        case 'goto': {
+         case 'goto': {
           const target: string | undefined = resolveString(instruction.value);
           if (!target) throw new Error(`Step ${stepIndex + 1} (${stepName}): goto requires value`);
           const url: string = resolveBrowserUrl(target, step, additionalData);
-          await activePage.goto(url);
+          await activePage.goto(url, { timeout: instruction.timeoutMs });
           break;
         }
         case 'click': {

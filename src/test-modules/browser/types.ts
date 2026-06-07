@@ -6,10 +6,14 @@ export type BrowserSelector =
   | { kind: 'css'; value: string }
   | { kind: 'xpath'; value: string };
 
+export type BrowserSelectorReference = string;
+
+export type BrowserSelectorInput = BrowserSelector | BrowserSelectorReference;
+
 export type BrowserActionInstruction = {
   kind: 'action';
   action: 'goto' | 'click' | 'fill' | 'press' | 'waitFor' | 'screenshot';
-  selector?: BrowserSelector;
+  selector?: BrowserSelectorInput;
   value?: string;
   timeoutMs?: number;
   key?: string;
@@ -18,7 +22,7 @@ export type BrowserActionInstruction = {
 export type BrowserAssertionInstruction = {
   kind: 'assertion';
   assertion: 'toBeVisible' | 'toHaveText' | 'toHaveValue' | 'toContainText' | 'toHaveURL';
-  selector?: BrowserSelector;
+  selector?: BrowserSelectorInput;
   expected?: string;
   timeoutMs?: number;
 };
@@ -26,7 +30,7 @@ export type BrowserAssertionInstruction = {
 export type BrowserExtractInstruction = {
   kind: 'extract';
   extract: 'textContent' | 'inputValue' | 'href' | 'url';
-  selector?: BrowserSelector;
+  selector?: BrowserSelectorInput;
   saveAs: string;
 };
 
