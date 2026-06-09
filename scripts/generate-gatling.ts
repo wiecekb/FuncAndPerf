@@ -5,14 +5,17 @@ import { config } from '../src/config';
 import { escapeJsString, setNestedValueCode } from '../src/gatling/common';
 import {
   buildDataHandlerMap,
+  collectUniquePreambleLines,
+  createScriptGeneratorContext,
   emitScenarioMetadata,
+  emitPreambleLines,
   isStepDataReference,
   loadAllScenarios,
-  parseStepDataReference,
+  parseStepDataReference
 } from './shared';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getStepInstanceKey } from '../src/scenario/instances';
+import { pathToFileURL } from 'url';
 
 function toValidFunctionName(index: number, name: string): string {
   let fn: string = name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '');
@@ -33,7 +36,6 @@ export function generateGatlingSimulation(scenarios: Scenario[]): string {
   const lines: string[] = [];
   const emit: (line?: string) => number = (line: string = ''): number => lines.push(line);
 
-  // ── Header ──
   emit(
     "import { simulation, scenario, pause, exec, StringBody, getEnvironmentVariable, jsonPath, bodyString, constantUsersPerSec } from '@gatling.io/core';"
   );
@@ -42,41 +44,26 @@ export function generateGatlingSimulation(scenarios: Scenario[]): string {
   emit('const AUTH_TOKEN = getEnvironmentVariable("AUTH_TOKEN") || "no-token";');
   emit(`const HOSTS = ${JSON.stringify(config.hosts || {})};`);
   emit('');
-
-  // ── Preamble (attachments) ──
   const preambleCtx: GatlingGeneratorContext = {
     declaredAttachments: new Set(),
     stepVarName: (i: number): string => `step${i}`,
     stepInstanceHostRefs: new Map<string, string>(),
   };
-  const preambleLines: string[] = [];
-  for (const scenario of scenarios) {
-    for (const step of scenario.steps) {
-      const gen: GatlingStepGenerator | undefined = gatlingGeneratorRegistry.get(step.stepType);
-      if (gen?.generatePreamble) {
-        preambleLines.push(...gen.generatePreamble(step, preambleCtx));
-      }
-    }
-  }
-  const uniquePreamble: string[] = [...new Set(preambleLines)];
-  if (uniquePreamble.length > 0) {
-    emit('// Pre-load attachment files');
-    for (const line of uniquePreamble) {
-      emit(line);
-    }
-    emit('');
-  }
+  emitPreambleLines(
+    collectUniquePreambleLines(scenarios, gatlingGeneratorRegistry, preambleCtx),
+    emit,
+    '// Pre-load attachment files'
+  );
 
   const functionNames: string[] = [];
 
-  // ── Scenario functions ──
   for (let si: number = 0; si < scenarios.length; si++) {
     const scenario: Scenario = scenarios[si];
     const steps: StepData[] = scenario.steps;
     const fnName: string = toValidFunctionName(si, scenario.scenarioName);
     const dataHandlerMap: Map<string, number> = buildDataHandlerMap(steps);
 
-    const supportedSteps: StepData[] = steps.filter((s: StepData) => gatlingGeneratorRegistry.has(s.stepType));
+    const supportedSteps: StepData[] = steps.filter((s: StepData): boolean => gatlingGeneratorRegistry.has(s.stepType));
     if (supportedSteps.length === 0) {
       emit(`// Scenario ${si}: "${scenario.scenarioName}" — SKIPPED (no supported step types)`);
       emit(`export function ${fnName}() { return scenario('${escapeJsString(scenario.scenarioName)}'); }`);
@@ -100,18 +87,7 @@ export function generateGatlingSimulation(scenarios: Scenario[]): string {
         continue;
       }
 
-      // Track hostRef across steps in this scenario
-      if (step.hostRef) {
-        preambleCtx.currentHostRef = step.hostRef;
-        preambleCtx.stepInstanceHostRefs?.set(getStepInstanceKey(step), step.hostRef);
-      }
-
-      const ctx: GatlingGeneratorContext = {
-        declaredAttachments: preambleCtx.declaredAttachments,
-        stepVarName: (i: number): string => `step${i}`,
-        currentHostRef: preambleCtx.currentHostRef,
-        stepInstanceHostRefs: preambleCtx.stepInstanceHostRefs,
-      };
+      const ctx: GatlingGeneratorContext = createScriptGeneratorContext(step, preambleCtx);
 
       const payloadResult: GatlingPayloadResult = gen.generateDefaultPayload(step, ctx);
       const payloadVarName: string = payloadResult.payloadVarName;
@@ -159,7 +135,6 @@ export function generateGatlingSimulation(scenarios: Scenario[]): string {
 
       const saveAsKey: string = `resBody${stepIdx}`;
 
-      // Build check lines that the caller would normally append after the http call
       const checkLines: string[] = [];
       checkLines.push(`      .check(status().is(${step.returnCode}))`);
       if (step.validateResponse) {
@@ -172,7 +147,6 @@ export function generateGatlingSimulation(scenarios: Scenario[]): string {
       }
       checkLines.push(`      .check(bodyString().saveAs('${saveAsKey}'))`);
 
-      // If the generator implements the new method, delegate check placement to it
       if (typeof gen.generateHttpCallWithChecks === 'function') {
         const httpLines: string[] = gen.generateHttpCallWithChecks(
           sessionFnParam,
@@ -203,13 +177,11 @@ export function generateGatlingSimulation(scenarios: Scenario[]): string {
     functionNames.push(fnName);
   }
 
-  // ── Scenario metadata ──
   emitScenarioMetadata(scenarios, emit, '// Scenario metadata', escapeJsString, (step: StepData): string => {
     const gen: GatlingStepGenerator | undefined = gatlingGeneratorRegistry.get(step.stepType);
     return gen?.getEndpoint?.(step) || `'${escapeJsString(`Unknown step type: ${step.stepType}`)}'`;
   });
 
-  // ── Simulation entry ──
   emit(`// ── Simulation ──`);
   emit(`export default simulation((setUp) => {`);
 
@@ -309,11 +281,11 @@ export function generateGatlingSimulation(scenarios: Scenario[]): string {
   return lines.join('\n');
 }
 
-// ── Main ──
 function main(): void {
   try {
     const scenariosDir: string = 'tests/scenarios';
-    const scenarios: Scenario[] = loadAllScenarios(scenariosDir);
+    const fileToScenarios: Map<string, Scenario[]> = loadAllScenarios(scenariosDir);
+    const scenarios: Scenario[] = Array.from(fileToScenarios.values()).flat();
     console.log(`\nGenerating Gatling simulation for ${scenarios.length} scenario(s) from ${scenariosDir}/...\n`);
 
     const simulation: string = generateGatlingSimulation(scenarios);
@@ -344,12 +316,11 @@ function main(): void {
         continue;
       }
 
-      // Log skipped steps if any
       if (skippedCount > 0) {
         const skippedSteps: string[] = s.steps
           .filter((st: StepData): boolean => !gatlingGeneratorRegistry.has(st.stepType))
-          .map((st: StepData) => {
-            const stepName = st.stepName || st.stepType;
+          .map((st: StepData): string => {
+            const stepName: string = st.stepName || st.stepType;
             return `  - "${stepName}" (${st.stepType})`;
           });
         console.log(
@@ -365,4 +336,6 @@ function main(): void {
   }
 }
 
-main();
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  main();
+}

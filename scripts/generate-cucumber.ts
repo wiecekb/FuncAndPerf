@@ -1,10 +1,9 @@
-#!/usr/bin/env node
-
 import { type Scenario, type StepData } from '../src/scenario/loader';
 import { ScenarioType } from '../src/scenario/types';
 import { loadAllScenarios } from './shared';
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import type { BrowserAdditionalData, BrowserInstruction } from '../src/test-modules/browser/types';
 
 function printHelp(): void {
@@ -52,7 +51,7 @@ function generateCalculatorStepLines(step: StepData, indent: number): string[] {
         if (mod.modifiedValue && mod.modifiedValue.includes('.')) {
           const match: RegExpMatchArray | null = mod.modifiedValue.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\.response\.\$(\..+)$/);
           if (match) {
-            const fieldName = match[2].startsWith('.') ? match[2].substring(1) : match[2];
+            const fieldName: string = match[2].startsWith('.') ? match[2].substring(1) : match[2];
             lines.push(
               formatGherkinLine(
                 `Given parameter '${mod.modifiedParameter}' is set to value from step '${match[1]}' field '${fieldName}'`,
@@ -271,7 +270,7 @@ function generateFeatureFile(scenarios: Scenario[], fileName: string): string {
 }
 
 function main(): void {
-  const args = process.argv.slice(2);
+  const args: string[] = process.argv.slice(2);
   
   if (args.includes('--help') || args.includes('-h')) {
     printHelp();
@@ -304,4 +303,6 @@ function main(): void {
   }
 }
 
-main();
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  main();
+}

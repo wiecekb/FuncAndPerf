@@ -1,7 +1,19 @@
 import type { ModifyRequest } from '../scenario/modify';
 
 export function escapeJsString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+    .replace(/\u0008/g, '\\b')
+    .replace(/\f/g, '\\f')
+    .replace(/[\u0000-\u001f]/g, (character: string): string => {
+      const code: string = character.charCodeAt(0).toString(16).padStart(2, '0');
+      return `\\x${code}`;
+    });
 }
 
 export function jsonPathReadCode(jsonPath: string): string {
@@ -15,17 +27,17 @@ export function setNestedValueCode(objVar: string, path: string, formattedValue:
   const cleanPath: string = path.replace(/^\$\./, '');
   const keys: string[] = cleanPath.split('.');
   if (keys.length === 1) {
-    return `(${objVar} as any)['${escapeJsString(keys[0])}'] = ${formattedValue};`;
+    return `${objVar}['${escapeJsString(keys[0])}'] = ${formattedValue};`;
   }
   const parentInitializers: string = keys
     .slice(0, -1)
     .map((key: string): string => {
       const escapedKey: string = escapeJsString(key);
-      return `target = (target['${escapedKey}'] ??= {});`;
+      return `target = Reflect.get(target, '${escapedKey}') ?? (Reflect.set(target, '${escapedKey}', {}), Reflect.get(target, '${escapedKey}'));`;
     })
     .join(' ');
   const lastKey: string = escapeJsString(keys[keys.length - 1]);
-  return `{ let target = ${objVar} as any; ${parentInitializers} target['${lastKey}'] = ${formattedValue}; }`;
+  return `{ let target = ${objVar}; ${parentInitializers} Reflect.set(target, '${lastKey}', ${formattedValue}); }`;
 }
 
 export function generateModification(

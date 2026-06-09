@@ -1,27 +1,9 @@
 import type { StepData } from '../../scenario/loader';
 import type { K6BrowserStepGenerator, K6BrowserGeneratorContext } from '../../k6/interface';
-import type { BrowserAdditionalData, BrowserInstruction, BrowserSelectorInput } from './types';
+import type { BrowserAdditionalData, BrowserInstruction } from './types';
 import { escapeJsString } from '../../k6/common';
 import { getStepInstanceName } from '../../scenario/instances';
-import { resolveBrowserSelector } from './selectors';
-
-function selectorToLocatorExpr(selector: BrowserSelectorInput): string {
-  const resolvedSelector = resolveBrowserSelector(selector);
-  switch (resolvedSelector.kind) {
-    case 'role':
-      return `page.getByRole('${escapeJsString(resolvedSelector.role)}', { name: ${resolvedSelector.name ? `'${escapeJsString(resolvedSelector.name)}'` : 'undefined'}, exact: ${resolvedSelector.exact ?? false} })`;
-    case 'label':
-      return `page.getByLabel('${escapeJsString(resolvedSelector.text)}', { exact: ${resolvedSelector.exact ?? false} })`;
-    case 'testId':
-      return `page.getByTestId('${escapeJsString(resolvedSelector.value)}')`;
-    case 'text':
-      return `page.getByText('${escapeJsString(resolvedSelector.value)}', { exact: ${resolvedSelector.exact ?? false} })`;
-    case 'css':
-      return `page.locator('${escapeJsString(resolvedSelector.value)}')`;
-    case 'xpath':
-      return `page.locator('xpath=${escapeJsString(resolvedSelector.value)}')`;
-  }
-}
+import { selectorToLocatorExpr } from './codegen';
 
 function generateInstructionLines(
   instruction: BrowserInstruction,
@@ -166,8 +148,8 @@ export class BrowserK6Generator implements K6BrowserStepGenerator {
     const additionalData = step.additionalData as BrowserAdditionalData | undefined;
     if (!additionalData?.instructions) return [];
 
-    const stepName = step.stepName || `Step ${ctx.stepVarName(0)}`;
-    const stepInstanceName = getStepInstanceName(step);
+    const stepName: string = step.stepName || `Step ${ctx.stepVarName(0)}`;
+    const stepInstanceName: string = getStepInstanceName(step);
     const stepBaseUrlVarName = `currentStepBaseUrl_${ctx.stepVarName(0)}`;
 
     const lines: string[] = [];
@@ -185,7 +167,7 @@ export class BrowserK6Generator implements K6BrowserStepGenerator {
 
     for (let ii = 0; ii < additionalData.instructions.length; ii++) {
       const instruction = additionalData.instructions[ii] as BrowserInstruction;
-      const generated = generateInstructionLines(instruction, stepName, parseInt(ctx.stepVarName(0)), stepBaseUrlVarName);
+      const generated: string[] = generateInstructionLines(instruction, stepName, parseInt(ctx.stepVarName(0)), stepBaseUrlVarName);
       for (const line of generated) {
         lines.push(`      ${line}`);
       }

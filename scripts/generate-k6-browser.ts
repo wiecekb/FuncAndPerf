@@ -1,12 +1,21 @@
 import { type Scenario, type StepData } from '../src/scenario/loader';
 import { ScenarioType } from '../src/scenario/types';
-import { loadAllScenarios } from './shared';
-import type { BrowserAdditionalData, BrowserInstruction, BrowserSelectorInput } from '../src/test-modules/browser/types';
+import {
+  emitBrowserRuntimeHelpers,
+  emitBrowserStepInstructions,
+  emitK6BrowserScenarioSetup,
+  emitK6BrowserSharedIterationsOptions,
+  emitSimpleScenarioBannerHelper,
+  loadAllScenarios,
+  toValidFunctionName,
+  generateScenarioExecutionCode
+} from './shared';
+import type { BrowserAdditionalData } from '../src/test-modules/browser/types';
+import { escapeJsString } from '../src/common/codegen';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
 import { getStepInstanceName } from '../src/scenario/instances';
 import { config } from '../src/config';
-import { resolveBrowserSelector } from '../src/test-modules/browser/selectors';
 
 function printHelp(): void {
   console.log('k6/browser generator help');
@@ -37,174 +46,11 @@ function printHelp(): void {
   console.log('  K6_BROWSER_BASE_URL=https://playwright.dev npm run k6:browser:run');
 }
 
-export function toValidFunctionName(name: string): string {
-  let fn: string = name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '');
-  if (/^[0-9]/.test(fn)) {
-    fn = `scenario_${fn}`;
-  }
-  return fn || 'scenario';
-}
-
-export function escapeJsString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
-}
-
-export function selectorToLocatorExpr(selector: BrowserSelectorInput): string {
-  const resolvedSelector = resolveBrowserSelector(selector);
-  switch (resolvedSelector.kind) {
-    case 'role':
-      return `page.getByRole('${escapeJsString(resolvedSelector.role)}', { name: ${resolvedSelector.name ? `'${escapeJsString(resolvedSelector.name)}'` : 'undefined'}, exact: ${resolvedSelector.exact ?? false} })`;
-    case 'label':
-      return `page.getByLabel('${escapeJsString(resolvedSelector.text)}', { exact: ${resolvedSelector.exact ?? false} })`;
-    case 'testId':
-      return `page.getByTestId('${escapeJsString(resolvedSelector.value)}')`;
-    case 'text':
-      return `page.getByText('${escapeJsString(resolvedSelector.value)}', { exact: ${resolvedSelector.exact ?? false} })`;
-    case 'css':
-      return `page.locator('${escapeJsString(resolvedSelector.value)}')`;
-    case 'xpath':
-      return `page.locator('xpath=${escapeJsString(resolvedSelector.value)}')`;
-  }
-}
-
-export function generateInstructionLines(
-  instruction: BrowserInstruction,
-  stepName: string,
-  stepIndex: number,
-  stepBaseUrlVarName: string
-): string[] {
-  const lines: string[] = [];
-
-  if (instruction.kind === 'action') {
-    switch (instruction.action) {
-      case 'goto': {
-        lines.push(
-          `await page.goto(resolveUrl(resolveValue('${escapeJsString(instruction.value || '')}'), ${stepBaseUrlVarName}));`
-        );
-        break;
-      }
-      case 'click': {
-        if (!instruction.selector) break;
-        lines.push(
-          `await ${selectorToLocatorExpr(instruction.selector)}.click({ timeout: ${instruction.timeoutMs ?? 10000} });`
-        );
-        break;
-      }
-      case 'fill': {
-        if (!instruction.selector) break;
-        lines.push(
-          `await ${selectorToLocatorExpr(instruction.selector)}.fill(resolveValue('${escapeJsString(instruction.value || '')}'), { timeout: ${instruction.timeoutMs ?? 10000} });`
-        );
-        break;
-      }
-      case 'press': {
-        if (!instruction.selector || !instruction.key) break;
-        lines.push(
-          `await ${selectorToLocatorExpr(instruction.selector)}.press('${escapeJsString(instruction.key)}', { timeout: ${instruction.timeoutMs ?? 10000} });`
-        );
-        break;
-      }
-      case 'waitFor': {
-        if (!instruction.selector) break;
-        lines.push(
-          `await ${selectorToLocatorExpr(instruction.selector)}.waitFor({ timeout: ${instruction.timeoutMs ?? 10000} });`
-        );
-        break;
-      }
-      case 'screenshot': {
-        lines.push('if (screenshotsEnabled()) {');
-        lines.push(
-          `  await page.screenshot({ path: 'results/k6-browser/${stepIndex + 1}-${escapeJsString(stepName)}-manual.png' });`
-        );
-        lines.push('}');
-        break;
-      }
-    }
-    return lines;
-  }
-
-  if (instruction.kind === 'assertion') {
-    switch (instruction.assertion) {
-      case 'toHaveURL': {
-        lines.push('await page.waitForTimeout(300);');
-        lines.push(
-          `check(page.url(), { 'url matches': (u) => urlMatches(u, resolveValue('${escapeJsString(instruction.expected || '')}')) });`
-        );
-        break;
-      }
-      case 'toBeVisible': {
-        if (!instruction.selector) break;
-        lines.push(
-          `check(await ${selectorToLocatorExpr(instruction.selector)}.isVisible(), { 'element visible': (v) => v === true });`
-        );
-        break;
-      }
-      case 'toHaveText': {
-        if (!instruction.selector) break;
-        lines.push(
-          `check(await ${selectorToLocatorExpr(instruction.selector)}.textContent(), { 'text equals': (t) => (t || '').trim() === resolveValue('${escapeJsString(instruction.expected || '')}') });`
-        );
-        break;
-      }
-      case 'toContainText': {
-        if (!instruction.selector) break;
-        lines.push(
-          `await ${selectorToLocatorExpr(instruction.selector)}.waitFor({ timeout: ${instruction.timeoutMs ?? 10000} });`
-        );
-        lines.push(
-          `check(await ${selectorToLocatorExpr(instruction.selector)}.textContent(), { 'text contains': (t) => (t || '').includes(resolveValue('${escapeJsString(instruction.expected || '')}')) });`
-        );
-        break;
-      }
-      case 'toHaveValue': {
-        if (!instruction.selector) break;
-        lines.push(
-          `check(await ${selectorToLocatorExpr(instruction.selector)}.inputValue(), { 'value equals': (v) => v === resolveValue('${escapeJsString(instruction.expected || '')}') });`
-        );
-        break;
-      }
-    }
-    return lines;
-  }
-
-  if (instruction.kind === 'extract') {
-    switch (instruction.extract) {
-      case 'url':
-        lines.push(`ctx['${escapeJsString(instruction.saveAs)}'] = page.url();`);
-        break;
-      case 'textContent':
-        if (instruction.selector) {
-          lines.push(
-            `ctx['${escapeJsString(instruction.saveAs)}'] = await ${selectorToLocatorExpr(instruction.selector)}.textContent();`
-          );
-        }
-        break;
-      case 'inputValue':
-        if (instruction.selector) {
-          lines.push(
-            `ctx['${escapeJsString(instruction.saveAs)}'] = await ${selectorToLocatorExpr(instruction.selector)}.inputValue();`
-          );
-        }
-        break;
-      case 'href':
-        if (instruction.selector) {
-          lines.push(
-            `ctx['${escapeJsString(instruction.saveAs)}'] = await ${selectorToLocatorExpr(instruction.selector)}.getAttribute('href');`
-          );
-        }
-        break;
-    }
-    return lines;
-  }
-
-  return lines;
-}
-
 export function generateScript(scenarios: Scenario[]): string {
   const browserScenarios: Scenario[] = scenarios.filter(
-    (scenario: Scenario) =>
-      scenario.steps.some((step: StepData) => step.stepType === ScenarioType.BROWSER) &&
-      scenario.steps.every((step: StepData) => step.stepType === ScenarioType.BROWSER)
+    (scenario: Scenario):boolean =>
+      scenario.steps.some((step: StepData):boolean => step.stepType === ScenarioType.BROWSER) &&
+      scenario.steps.every((step: StepData):boolean => step.stepType === ScenarioType.BROWSER)
   );
 
   const lines: string[] = [];
@@ -221,108 +67,31 @@ export function generateScript(scenarios: Scenario[]): string {
   emit('');
   emit(`const HOSTS = ${JSON.stringify(config.hosts || {})};`);
   emit('');
-  emit('export const options = {');
-  emit('  scenarios: {');
-  emit('    browser: {');
-  emit("      executor: 'shared-iterations',");
-  emit("      vus: parseInt(__ENV.K6_BROWSER_VUS || '1'),");
-  emit("      iterations: parseInt(__ENV.K6_BROWSER_ITERATIONS || '1'),");
-  emit("      maxDuration: __ENV.K6_BROWSER_MAX_DURATION || '10m',");
-  emit('      options: { browser: { type: "chromium" } }');
-  emit('    }');
-  emit('  }');
-  emit('};');
-  emit('');
+  emitK6BrowserSharedIterationsOptions(emit, 'browser');
 
-  emit('function resolveValue(value) {');
-  emit('  if (!value) return value;');
-  emit('  const refMatch = value.match(/^\\$\\{ctx\\.([a-zA-Z0-9_]+)\\}$/);');
-  emit('  if (refMatch && globalThis.__ctx && Object.prototype.hasOwnProperty.call(globalThis.__ctx, refMatch[1])) {');
-  emit('    return String(globalThis.__ctx[refMatch[1]]);');
-  emit('  }');
-  emit('  const stepRefMatch = value.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\\.([a-zA-Z_][a-zA-Z0-9_]*)(?:\\.(\\$\\..+))?$/);');
-  emit('  if (stepRefMatch && globalThis.__stepData) {');
-  emit('    const record = globalThis.__stepData[stepRefMatch[1]];');
-  emit('    const source = record && record[stepRefMatch[2]];');
-  emit('    if (source !== undefined && source !== null) {');
-  emit('      const resolved = stepRefMatch[3] ? readJsonPath(source, stepRefMatch[3]) : source;');
-  emit('      if (resolved !== undefined && resolved !== null) return String(resolved);');
-  emit('    }');
-  emit('  }');
-  emit('  return value;');
-  emit('}');
-  emit('');
-  emit('function readJsonPath(source, jsonPath) {');
-  emit('  const cleanPath = String(jsonPath).replace(/^\\$\\./, "");');
-  emit('  if (!cleanPath) return source;');
-  emit('  return cleanPath.split(".").reduce((current, key) => current == null ? undefined : current[key], source);');
-  emit('}');
-  emit('');
-  emit('function resolveUrl(value, stepBaseUrl) {');
-  emit('  if (!value) return value;');
-  emit('  if (/^https?:\\/\\//.test(value)) return value;');
-  emit("  const base = stepBaseUrl || __ENV.K6_BROWSER_BASE_URL || 'http://localhost:3000';");
-  emit("  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;");
-  emit("  const normalizedPath = value.startsWith('/') ? value : `/${value}`;");
-  emit('  return `${normalizedBase}${normalizedPath}`;');
-  emit('}');
-  emit('');
-  emit('function urlMatches(actual, expected) {');
-  emit('  if (!actual || !expected) return actual === expected;');
-  emit("  const a = String(actual).replace(/\\/+$/, '');");
-  emit("  const e = String(expected).replace(/\\/+$/, '');");
-  emit('  return a === e || a.startsWith(`${e}/`) || a.startsWith(`${e}#`) || a.startsWith(`${e}?`);');
-  emit('}');
-  emit('');
-  emit('function screenshotsEnabled() {');
-  emit("  return String(__ENV.K6_BROWSER_SCREENSHOTS || 'on').toLowerCase() !== 'off';");
-  emit('}');
-  emit('');
-
-  emit('function printScenarioBanner(index, name, stepCount) {');
-  emit("  console.log('');");
-  emit("  console.log('='.repeat(60));");
-  emit("  console.log('  FunPerf - k6 Browser Scenario');");
-  emit("  console.log('='.repeat(60));");
-  emit("  console.log('  Scenario Index: ' + index);");
-  emit("  console.log('  Scenario Name:  ' + name);");
-  emit("  console.log('  Total Steps:    ' + stepCount);");
-  emit("  console.log('='.repeat(60));");
-  emit("  console.log('');");
-  emit('}');
-  emit('');
+  emitBrowserRuntimeHelpers(emit, true);
+  emitSimpleScenarioBannerHelper(emit, 'FunPerf - k6 Browser Scenario', 'stepCount');
 
   const fnNames: string[] = [];
   const scenarioMetadata: { index: number; name: string; stepCount: number }[] = [];
 
   for (let i = 0; i < browserScenarios.length; i++) {
-    const scenario = browserScenarios[i];
-    const fnName = toValidFunctionName(`browser_${scenario.scenarioName}`);
+    const scenario: Scenario = browserScenarios[i];
+    const fnName:string = toValidFunctionName(`browser_${scenario.scenarioName}`);
     fnNames.push(fnName);
-    const browserStepCount = scenario.steps.filter((step) => step.stepType === ScenarioType.BROWSER).length;
+    const browserStepCount:number = scenario.steps.filter((step: StepData):boolean => step.stepType === ScenarioType.BROWSER).length;
     scenarioMetadata.push({ index: i + 1, name: scenario.scenarioName, stepCount: browserStepCount });
 
     emit(`async function ${fnName}() {`);
     emit(`  printScenarioBanner(${i + 1}, '${escapeJsString(scenario.scenarioName)}', ${browserStepCount});`);
-    emit('  const pageInstances = {};');
-    emit('  const browserContext = await browser.newContext();');
-    emit('  async function getPageForStepInstance(instanceName) {');
-    emit('    if (pageInstances[instanceName]) return pageInstances[instanceName].page;');
-    emit('    const page = await browserContext.newPage();');
-    emit('    pageInstances[instanceName] = { page };');
-    emit('    return page;');
-    emit('  }');
-    emit('  const ctx = globalThis.__ctx || {};');
-    emit('  globalThis.__ctx = ctx;');
-    emit('  const stepData = globalThis.__stepData || {};');
-    emit('  globalThis.__stepData = stepData;');
+    emitK6BrowserScenarioSetup(emit, true);
     emit('  try {');
 
     for (let s = 0; s < scenario.steps.length; s++) {
-      const step = scenario.steps[s];
+      const step: StepData = scenario.steps[s];
       if (step.stepType !== ScenarioType.BROWSER) continue;
-      const stepName = step.stepName || `Step ${s + 1}`;
-      const stepInstanceName = getStepInstanceName(step);
+      const stepName:string = step.stepName || `Step ${s + 1}`;
+      const stepInstanceName:string = getStepInstanceName(step);
       const additionalData = step.additionalData as BrowserAdditionalData | undefined;
       if (!additionalData?.instructions) continue;
 
@@ -330,22 +99,7 @@ export function generateScript(scenarios: Scenario[]): string {
       emit(`      console.log('Step: ${escapeJsString(stepName)} [${escapeJsString(stepInstanceName)}]');`);
       emit(`      const page = await getPageForStepInstance('${escapeJsString(stepInstanceName)}');`);
       emit('      const ctxBefore = Object.assign({}, ctx);');
-      const stepBaseUrlVarName = `currentStepBaseUrl_${s}`;
-      const browserBaseUrlExpr: string = additionalData.baseUrl
-        ? `'${escapeJsString(additionalData.baseUrl)}'`
-        : step.hostRef
-          ? `HOSTS['${escapeJsString(step.hostRef)}']`
-          : 'undefined';
-      emit(
-        `      const ${stepBaseUrlVarName} = ${browserBaseUrlExpr};`
-      );
-      for (let ii = 0; ii < additionalData.instructions.length; ii++) {
-        const instruction = additionalData.instructions[ii] as BrowserInstruction;
-        const generated = generateInstructionLines(instruction, stepName, s, stepBaseUrlVarName);
-        for (const line of generated) {
-          emit(`      ${line}`);
-        }
-      }
+      emitBrowserStepInstructions(additionalData, step, stepName, s, emit, '      ');
       if (step.dataHandlerName) {
         emit('      const extractedValues = {};');
         emit('      for (const key of Object.keys(ctx)) {');
@@ -373,16 +127,9 @@ export function generateScript(scenarios: Scenario[]): string {
     emit(`  const scenarios = [${fnNames.join(', ')}];`);
     emit(`  const scenarioMetadata = ${JSON.stringify(scenarioMetadata)};`);
     emit("  const index = parseInt(__ENV.K6_BROWSER_SCENARIO_INDEX || '0');");
-    emit('  if (index > 0 && index <= scenarios.length) {');
-    emit('    await scenarios[index - 1]();');
-    emit('  } else {');
-    emit('    for (const meta of scenarioMetadata) {');
-    emit('      printScenarioBanner(meta.index, meta.name, meta.stepCount);');
-    emit('    }');
-    emit('    for (const run of scenarios) {');
-    emit('      await run();');
-    emit('    }');
-    emit('  }');
+    for (const line of generateScenarioExecutionCode('scenarios', 'scenarioMetadata', 'index')) {
+      emit(line);
+    }
   }
   emit('  sleep(1);');
   emit('}');
@@ -392,35 +139,37 @@ export function generateScript(scenarios: Scenario[]): string {
 
 function main(): void {
   try {
-    const args = process.argv.slice(2);
+    const args: string[] = process.argv.slice(2);
     if (args.includes('-h') || args.includes('--help') || args.includes('-help')) {
       printHelp();
       return;
     }
-
     const scenariosDir = 'tests/scenarios';
-    const scenarios = loadAllScenarios(scenariosDir);
-    const browserScenarios = scenarios.filter((scenario: Scenario) => {
-      // Check if scenario has at least one BROWSER step
-      const hasBrowserStep = scenario.steps.some((step: StepData) => step.stepType === ScenarioType.BROWSER);
+    const fileToScenarios: Map<string, Scenario[]> = loadAllScenarios(scenariosDir);
+    const scenarios: Scenario[] = Array.from(fileToScenarios.values()).flat();
+    const browserScenarios: Scenario[] = scenarios.filter((scenario: Scenario): boolean => {
+      const hasBrowserStep: boolean = scenario.steps.some(
+        (step: StepData): boolean => step.stepType === ScenarioType.BROWSER
+      );
       if (!hasBrowserStep) {
-        console.log(`  ⚠️ Scenariusz "${scenario.scenarioName}" pominięty (brak stepów typu BROWSER)`);
+        console.log(`  ⚠️ Scenario "${scenario.scenarioName}" skipped (no BROWSER type steps)`);
         return false;
       }
 
-      // Check if scenario has any non-BROWSER steps
-      const nonBrowserSteps = scenario.steps.filter((step: StepData) => step.stepType !== ScenarioType.BROWSER);
+      const nonBrowserSteps: StepData[] = scenario.steps.filter(
+        (step: StepData): boolean => step.stepType !== ScenarioType.BROWSER
+      );
       if (nonBrowserSteps.length > 0) {
         console.log(
-          `  ⚠️ Scenariusz "${scenario.scenarioName}" pominięty (mieszane typy stepów: ${nonBrowserSteps.length} step(s) nie jest typu BROWSER)`
+          `  ⚠️ Scenario "${scenario.scenarioName}" skipped (mixed step types: ${nonBrowserSteps.length} step(s) not of type BROWSER)`
         );
         return false;
       }
 
-      // All steps are BROWSER
       return true;
     });
     const script: string = generateScript(scenarios);
+
 
     const outDir = 'performance_scripts/k6';
     const outPath = `${outDir}/browser-performance-test.js`;

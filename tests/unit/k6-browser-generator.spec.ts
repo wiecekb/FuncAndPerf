@@ -1,10 +1,7 @@
 import { expect, test } from '@playwright/test';
-import {
-  generateInstructionLines,
-  generateScript,
-  selectorToLocatorExpr,
-  toValidFunctionName,
-} from '../../scripts/generate-k6-browser';
+import { generateScript } from '../../scripts/generate-k6-browser';
+import { generateInstructionLines, toValidFunctionName } from '../../scripts/shared';
+import { selectorToLocatorExpr } from '../../src/test-modules/browser/codegen';
 import { Scenario, type ScenarioData, type StepData } from '../../src/scenario/loader';
 import { ScenarioType } from '../../src/scenario/types';
 import type { BrowserInstruction, BrowserSelector } from '../../src/test-modules/browser/types';

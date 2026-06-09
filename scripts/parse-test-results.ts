@@ -164,13 +164,13 @@ function extractTestCases(testsuite: XmlTestSuite, scenarioMappings: Map<string,
 }
 
 async function parseJUnitXml(filePath: string, scenarioMappings: Map<string, number>): Promise<ParsedTestCase[]> {
-  const content = fs.readFileSync(filePath, 'utf-8');
+  const content: string = fs.readFileSync(filePath, 'utf-8');
   const result: XmlParseResult = await parseStringPromise(content, { explicitArray: false });
   console.log(`DEBUG: Parsing ${filePath}`);
   console.log(`DEBUG: result keys = ${Object.keys(result)}`);
   console.log(`DEBUG: result = ${JSON.stringify(result).substring(0, 500)}`);
 
-  const testsuite = result.testsuite || result.testsuites?.testsuite;
+  const testsuite: XmlTestSuite | XmlTestSuite[] | undefined = result.testsuite || result.testsuites?.testsuite;
 
   if (!testsuite) {
     console.warn(`No testsuite found in ${filePath}`);

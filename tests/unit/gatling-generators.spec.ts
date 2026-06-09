@@ -123,7 +123,7 @@ test.describe('Gatling step generators', (): void => {
     expect(code).toContain('const userSlot = (Number(step0.userId()) - 1) % tokenCacheSlots;');
     expect(code).toContain('const selectedUser = users[userSlot % users.length];');
     expect(code).toContain(
-      'const tokenCache = globalThis.__authorizedGatlingTokenCache || (globalThis.__authorizedGatlingTokenCache = {});'
+      'const tokenCache = (globalThis as any).__authorizedGatlingTokenCache || ((globalThis as any).__authorizedGatlingTokenCache = {});'
     );
     expect(code).toContain("+ '::' + selectedUser.username + '::slot-' + userSlot + '::' + \"default\"");
     expect(code).toContain('const cachedToken = tokenCache[cacheKey];');

@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { generateModification, jsonPathReadCode, setNestedValueCode } from '../../src/common/codegen';
+import { escapeJsString, generateModification, jsonPathReadCode, setNestedValueCode } from '../../src/common/codegen';
 
 test.describe('Codegen helpers', (): void => {
+  test('escapeJsString escapes JavaScript string control characters', (): void => {
+    expect(escapeJsString("a'b\"c\\d\ne\rf\tg\u0008h\fi\u0000")).toBe("a\\'b\\\"c\\\\d\\ne\\rf\\tg\\bh\\fi\\x00");
+  });
+
   test('setNestedValueCode uses bracket notation for single-segment paths', (): void => {
     expect(setNestedValueCode('payload', '$.user-id', '1')).toBe("payload['user-id'] = 1;");
   });
