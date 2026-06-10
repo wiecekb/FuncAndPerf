@@ -8,7 +8,7 @@ import {
   emitPreambleLines,
   emitScenarioMetadata,
   toValidFunctionName,
-  generateK6ApiStepBlock
+  generateK6ApiStepBlock,
 } from './shared';
 
 export function generateK6Script(scenarios: Scenario[]): string {

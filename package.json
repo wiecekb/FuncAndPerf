@@ -31,7 +31,7 @@
     "k6:dashboard": "k6 run --out web-dashboard performance_scripts/k6/performance-test.js",
     "k6:all": "npm run k6:generate && npm run k6:run:json",
     "gatling:generate": "npx tsx scripts/generate-gatling.ts",
-    "gatling:run": "GATLING_USERS_PER_SEC=20 GATLING_SCENARIO_INDEX=18 npx gatling run --sources-folder performance_scripts/gatling --simulation performance-test",
+    "gatling:run": "GATLING_USERS_PER_SEC=20 GATLING_SCENARIO_INDEX=9 npx gatling run --sources-folder performance_scripts/gatling --simulation performance-test",
     "gatling:run:json": "npx gatling run --sources-folder performance_scripts/gatling --simulation performance-test --results-folder results/gatling",
     "gatling:all": "npm run gatling:generate && npm run gatling:run",
     "lint": "eslint src scripts tests playwright.config.ts playwright.unit.config.ts --ext .ts",
@@ -45,8 +45,7 @@
     "@gatling.io/http": "^3.15.101",
     "ajv": "^8.20.0",
     "js-yaml": "^4.1.1",
-    "jsonpath-plus": "^10.4.0",
-    "k6": "^0.0.0"
+    "jsonpath-plus": "^10.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

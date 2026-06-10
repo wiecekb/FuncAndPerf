@@ -3,7 +3,7 @@ import { escapeJsString, generateModification, jsonPathReadCode, setNestedValueC
 
 test.describe('Codegen helpers', (): void => {
   test('escapeJsString escapes JavaScript string control characters', (): void => {
-    expect(escapeJsString("a'b\"c\\d\ne\rf\tg\u0008h\fi\u0000")).toBe("a\\'b\\\"c\\\\d\\ne\\rf\\tg\\bh\\fi\\x00");
+    expect(escapeJsString('a\'b"c\\d\ne\rf\tg\u0008h\fi\u0000')).toBe('a\\\'b\\"c\\\\d\\ne\\rf\\tg\\bh\\fi\\x00');
   });
 
   test('setNestedValueCode uses bracket notation for single-segment paths', (): void => {

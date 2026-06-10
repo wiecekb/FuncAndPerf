@@ -55,7 +55,7 @@ function generateActionInstructionLines(
         (locator: string): string =>
           `await ${locator}.fill(${resolveValueExpr(instruction.value)}, { timeout: ${timeout(instruction)} });`
       );
-    case 'press':
+    case 'press': {
       if (!instruction.key) return [];
       const key: string = instruction.key;
       return locatorCall(
@@ -63,6 +63,7 @@ function generateActionInstructionLines(
         (locator: string): string =>
           `await ${locator}.press('${escapeJsString(key)}', { timeout: ${timeout(instruction)} });`
       );
+    }
     case 'waitFor':
       return locatorCall(
         instruction,

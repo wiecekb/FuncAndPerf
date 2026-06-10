@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
-import {AuthorizedCalculatorInstanceOverride, config, parsePositiveIntegerEnv} from '../../src/config';
+import { AuthorizedCalculatorInstanceOverride, config, parsePositiveIntegerEnv } from '../../src/config';
 import {
   resolveAuthorizedCalcConfigForStep,
-  ResolvedAuthorizedCalcConfig
+  ResolvedAuthorizedCalcConfig,
 } from '../../src/test-modules/authorized-calculator/config';
 import type { StepData } from '../../src/scenario/loader';
 import { ScenarioType } from '../../src/scenario/types';
@@ -56,7 +56,8 @@ test.describe('Browser selector config', (): void => {
 
 test.describe('AuthorizedCalculator per-instance config', (): void => {
   test('config.yaml has `instances` map with per-instance overrides', (): void => {
-    const instances: Record<string, AuthorizedCalculatorInstanceOverride> | undefined = config.authorized_calculator.instances;
+    const instances: Record<string, AuthorizedCalculatorInstanceOverride> | undefined =
+      config.authorized_calculator.instances;
     expect(instances).toBeDefined();
     expect(instances).toHaveProperty('primaryCalc');
     expect(instances).toHaveProperty('secondaryCalc');

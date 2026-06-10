@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import {StepDataRecord, stepDataRegistry} from '../../src/scenario/data/registry';
+import { StepDataRecord, stepDataRegistry } from '../../src/scenario/data/registry';
 import { isReference, resolveModifyReferences, resolveReference } from '../../src/scenario/data/resolve';
 
 test.describe('Step Data Registry - Unit Tests', (): void => {

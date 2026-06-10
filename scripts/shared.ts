@@ -46,7 +46,9 @@ export function emitBrowserRuntimeHelpers(emit: (line?: string) => unknown, incl
   emit('    return String(globalThis.__ctx[refMatch[1]]);');
   emit('  }');
   if (includeStepDataResolution) {
-    emit('  const stepRefMatch = value.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\\.([a-zA-Z_][a-zA-Z0-9_]*)(?:\\.(\\$\\..+))?$/);');
+    emit(
+      '  const stepRefMatch = value.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\\.([a-zA-Z_][a-zA-Z0-9_]*)(?:\\.(\\$\\..+))?$/);'
+    );
     emit('  if (stepRefMatch && globalThis.__stepData) {');
     emit('    const record = globalThis.__stepData[stepRefMatch[1]];');
     emit('    const source = record && record[stepRefMatch[2]];');
@@ -253,15 +255,27 @@ export function buildDataHandlerMap(steps: StepData[]): Map<string, number> {
 export function loadAllScenarios(dirPath: string): Map<string, Scenario[]> {
   const files: string[] = fs.readdirSync(dirPath).filter((f: string): boolean => f.endsWith('.json'));
   const fileToScenarios = new Map<string, Scenario[]>();
+  const errors: { file: string; error: unknown }[] = [];
+
   for (const file of files) {
     const filePath: string = path.join(dirPath, file);
     try {
       const scenarios: Scenario[] = loadScenarios(filePath);
       fileToScenarios.set(file, scenarios);
     } catch (e) {
-      console.warn(`Warning: Could not load scenarios from ${filePath}: ${e instanceof Error ? e.message : String(e)}`);
+      errors.push({ file, error: e });
     }
   }
+
+  if (errors.length > 0) {
+    console.error(`\n❌ Failed to load ${errors.length} scenario file(s):`);
+    for (const err of errors) {
+      const errMsg = err.error instanceof Error ? err.error.message : String(err.error);
+      console.error(`  - ${err.file}: ${errMsg}`);
+    }
+    throw new Error(`Failed to load ${errors.length} scenario file(s).`);
+  }
+
   return fileToScenarios;
 }
 
@@ -317,7 +331,11 @@ export function toValidFunctionName(name: string): string {
   return fn || 'scenario';
 }
 
-export function generateScenarioExecutionCode(scenariosVarName: string, metadataVarName: string, indexVarName: string): string[] {
+export function generateScenarioExecutionCode(
+  scenariosVarName: string,
+  metadataVarName: string,
+  indexVarName: string
+): string[] {
   return [
     `  if (${indexVarName} > 0 && ${indexVarName} <= ${scenariosVarName}.length) {`,
     `    await ${scenariosVarName}[${indexVarName} - 1]();`,
@@ -328,7 +346,7 @@ export function generateScenarioExecutionCode(scenariosVarName: string, metadata
     `    for (const run of ${scenariosVarName}) {`,
     '      await run();',
     '    }',
-    '  }'
+    '  }',
   ];
 }
 
@@ -385,7 +403,8 @@ function generateK6ReferenceModificationLine(
   if (typeof modValue !== 'string') return null;
 
   if (options.preferSourceReferences && isStepDataSourceReference(modValue)) {
-    const ref: { dataHandlerName: string; source: string; jsonPath?: string } | null = parseStepDataSourceReference(modValue);
+    const ref: { dataHandlerName: string; source: string; jsonPath?: string } | null =
+      parseStepDataSourceReference(modValue);
     if (ref && dataHandlerMap.has(ref.dataHandlerName)) {
       const sourceStepIdx: number = dataHandlerMap.get(ref.dataHandlerName)!;
       const readExpr: string = generateStepDataSourceRead(`res${sourceStepIdx}`, ref.source, ref.jsonPath);
@@ -434,7 +453,12 @@ export function generateK6ApiStepBlock(
   if (step.modifyRequests && step.modifyRequests.length > 0) {
     blockLines.push(`${options.innerIndent}// Apply modifications`);
     for (const mod of step.modifyRequests) {
-      const referenceLine: string | null = generateK6ReferenceModificationLine(mod, payloadVarName, dataHandlerMap, options);
+      const referenceLine: string | null = generateK6ReferenceModificationLine(
+        mod,
+        payloadVarName,
+        dataHandlerMap,
+        options
+      );
       if (referenceLine) {
         blockLines.push(`${options.innerIndent}${referenceLine}`);
         continue;
@@ -484,8 +508,12 @@ export function generateStepDataRead(resVarName: string, jsonPath: string): stri
   return `JSON.parse(${resVarName}.body)${chain}`;
 }
 
-export function parseStepDataSourceReference(value: string): { dataHandlerName: string; source: string; jsonPath?: string } | null {
-  const withPathMatch: RegExpMatchArray | null = value.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\.\$(\..+)$/);
+export function parseStepDataSourceReference(
+  value: string
+): { dataHandlerName: string; source: string; jsonPath?: string } | null {
+  const withPathMatch: RegExpMatchArray | null = value.match(
+    /^([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\.\$(\..+)$/
+  );
   if (withPathMatch) {
     return { dataHandlerName: withPathMatch[1], source: withPathMatch[2], jsonPath: `$${withPathMatch[3]}` };
   }

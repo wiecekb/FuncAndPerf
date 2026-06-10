@@ -11,7 +11,7 @@ import {
   emitPreambleLines,
   isStepDataReference,
   loadAllScenarios,
-  parseStepDataReference
+  parseStepDataReference,
 } from './shared';
 import * as fs from 'fs';
 import * as path from 'path';

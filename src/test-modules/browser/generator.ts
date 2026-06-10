@@ -123,7 +123,7 @@ export async function executeBrowserStep(
     const instruction = additionalData.instructions[idx] as BrowserInstruction;
     if (instruction.kind === 'action') {
       switch (instruction.action) {
-         case 'goto': {
+        case 'goto': {
           const target: string | undefined = resolveString(instruction.value);
           if (!target) throw new Error(`Step ${stepIndex + 1} (${stepName}): goto requires value`);
           const url: string = resolveBrowserUrl(target, step, additionalData);

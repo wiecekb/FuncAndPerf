@@ -24,7 +24,7 @@ function printHelp(): void {
   console.log('  - saves files to features/ directory');
 }
 
-function toValidFilename(name: string): string {
+export function toValidFilename(name: string): string {
   return name
     .toLowerCase()
     .replace(/\.json$/, '')
@@ -33,9 +33,14 @@ function toValidFilename(name: string): string {
     .trim();
 }
 
-function escapeGherkinString(str: any): string {
-  const stringValue: string = String(str || '');
-  return stringValue.replace(/"/g, '\\"');
+export function escapeGherkinString(str: unknown): string {
+  const stringValue: string = String(str !== undefined && str !== null ? str : '');
+  return stringValue
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
 }
 
 function formatGherkinLine(line: string, indent: number = 0): string {
@@ -49,7 +54,9 @@ function generateCalculatorStepLines(step: StepData, indent: number): string[] {
     for (const mod of step.modifyRequests) {
       if ('modifiedParameter' in mod) {
         if (mod.modifiedValue && mod.modifiedValue.includes('.')) {
-          const match: RegExpMatchArray | null = mod.modifiedValue.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\.response\.\$(\..+)$/);
+          const match: RegExpMatchArray | null = mod.modifiedValue.match(
+            /^([a-zA-Z_][a-zA-Z0-9_]*)\.response\.\$(\..+)$/
+          );
           if (match) {
             const fieldName: string = match[2].startsWith('.') ? match[2].substring(1) : match[2];
             lines.push(
@@ -86,18 +93,12 @@ function generateCalculatorStepLines(step: StepData, indent: number): string[] {
   }
 
   if (step.additionalData?.operation) {
-    lines.push(
-      formatGherkinLine(`When '${step.additionalData.operation}' operation is performed`, indent)
-    );
+    lines.push(formatGherkinLine(`When '${step.additionalData.operation}' operation is performed`, indent));
   } else {
-    lines.push(
-      formatGherkinLine(`When calculator operation is performed`, indent)
-    );
+    lines.push(formatGherkinLine(`When calculator operation is performed`, indent));
   }
 
-  lines.push(
-    formatGherkinLine(`Then response should have status code ${step.returnCode}`, indent)
-  );
+  lines.push(formatGherkinLine(`Then response should have status code ${step.returnCode}`, indent));
 
   if (step.validateResponse && step.validateResponse.length > 0) {
     for (const validation of step.validateResponse) {
@@ -162,19 +163,14 @@ function generateBrowserStepLines(step: StepData, indent: number): string[] {
             );
             break;
           case 'screenshot':
-            lines.push(
-              formatGherkinLine(`When user takes screenshot`, indent)
-            );
+            lines.push(formatGherkinLine(`When user takes screenshot`, indent));
             break;
         }
       } else if (instruction.kind === 'assertion') {
         switch (instruction.assertion) {
           case 'toHaveURL':
             lines.push(
-              formatGherkinLine(
-                `Then URL should be '${escapeGherkinString(instruction.expected || '')}'`,
-                indent
-              )
+              formatGherkinLine(`Then URL should be '${escapeGherkinString(instruction.expected || '')}'`, indent)
             );
             break;
           case 'toBeVisible':
@@ -229,9 +225,7 @@ function generateStepLines(step: StepData, indent: number): string[] {
     case ScenarioType.BROWSER:
       return generateBrowserStepLines(step, indent);
     default:
-      return [
-        formatGherkinLine(`When ${step.stepType} step is executed`, indent)
-      ];
+      return [formatGherkinLine(`When ${step.stepType} step is executed`, indent)];
   }
 }
 
@@ -248,13 +242,16 @@ function generateScenarioLines(scenario: Scenario): string[] {
   return lines;
 }
 
-function generateFeatureFile(scenarios: Scenario[], fileName: string): string {
+export function generateFeatureFile(scenarios: Scenario[], fileName: string): string {
   const lines: string[] = [];
 
-  const featureName: string = fileName.replace('.json', '').replace(/-/g, ' ').split(' ').map(word =>
-    word.charAt(0).toUpperCase() + word.slice(1)
-  ).join(' ');
-  
+  const featureName: string = fileName
+    .replace('.json', '')
+    .replace(/-/g, ' ')
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
   lines.push(`Feature: ${featureName}`);
   lines.push('  As a system user');
   lines.push('  I want to test the system functionality');
@@ -271,7 +268,7 @@ function generateFeatureFile(scenarios: Scenario[], fileName: string): string {
 
 function main(): void {
   const args: string[] = process.argv.slice(2);
-  
+
   if (args.includes('--help') || args.includes('-h')) {
     printHelp();
     process.exit(0);
@@ -284,19 +281,20 @@ function main(): void {
 
   try {
     const fileToScenarios: Map<string, Scenario[]> = loadAllScenarios(path.join(process.cwd(), 'tests', 'scenarios'));
-    console.log(`Loaded ${Array.from(fileToScenarios.values()).flat().length} scenarios from ${fileToScenarios.size} files`);
+    console.log(
+      `Loaded ${Array.from(fileToScenarios.values()).flat().length} scenarios from ${fileToScenarios.size} files`
+    );
 
     for (const [fileName, scenarios] of fileToScenarios.entries()) {
       const featureFileName: string = toValidFilename(fileName) + '.feature';
       const filePath: string = path.join(outputDir, featureFileName);
       const content: string = generateFeatureFile(scenarios, fileName);
-      
+
       fs.writeFileSync(filePath, content, 'utf8');
       console.log(`Generated: ${filePath}`);
     }
 
     console.log(`\nSuccessfully generated ${fileToScenarios.size} feature files`);
-
   } catch (error) {
     console.error('Error generating Cucumber files:', error);
     process.exit(1);

@@ -4,7 +4,8 @@ import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 
 const PORT: number = parseInt(process.env.MOCK_PORT || '3000', 10);
-const USERS_FILE_PATH: string = process.env.MOCK_USERS_FILE || path.resolve(process.cwd(), 'tests/data/authorized-users.txt');
+const USERS_FILE_PATH: string =
+  process.env.MOCK_USERS_FILE || path.resolve(process.cwd(), 'tests/data/authorized-users.txt');
 const TOKEN_TTL_SECONDS: number = parseInt(process.env.MOCK_TOKEN_TTL_SECONDS || '3600', 10);
 
 type MockUser = { username: string; password: string };

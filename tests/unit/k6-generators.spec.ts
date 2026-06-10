@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { StepData } from '../../src/scenario/loader';
-import type {DefaultPayloadResult, K6GeneratorContext} from '../../src/k6/interface';
+import type { DefaultPayloadResult, K6GeneratorContext } from '../../src/k6/interface';
 import { ScenarioType } from '../../src/scenario/types';
 import { CalculatorK6Generator } from '../../src/test-modules/calculator/k6';
 import { CalcValidatedParameter } from '../../src/test-modules/calculator/validations';

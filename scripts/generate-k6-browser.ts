@@ -8,7 +8,7 @@ import {
   emitSimpleScenarioBannerHelper,
   loadAllScenarios,
   toValidFunctionName,
-  generateScenarioExecutionCode
+  generateScenarioExecutionCode,
 } from './shared';
 import type { BrowserAdditionalData } from '../src/test-modules/browser/types';
 import { escapeJsString } from '../src/common/codegen';
@@ -48,9 +48,9 @@ function printHelp(): void {
 
 export function generateScript(scenarios: Scenario[]): string {
   const browserScenarios: Scenario[] = scenarios.filter(
-    (scenario: Scenario):boolean =>
-      scenario.steps.some((step: StepData):boolean => step.stepType === ScenarioType.BROWSER) &&
-      scenario.steps.every((step: StepData):boolean => step.stepType === ScenarioType.BROWSER)
+    (scenario: Scenario): boolean =>
+      scenario.steps.some((step: StepData): boolean => step.stepType === ScenarioType.BROWSER) &&
+      scenario.steps.every((step: StepData): boolean => step.stepType === ScenarioType.BROWSER)
   );
 
   const lines: string[] = [];
@@ -77,9 +77,11 @@ export function generateScript(scenarios: Scenario[]): string {
 
   for (let i = 0; i < browserScenarios.length; i++) {
     const scenario: Scenario = browserScenarios[i];
-    const fnName:string = toValidFunctionName(`browser_${scenario.scenarioName}`);
+    const fnName: string = toValidFunctionName(`browser_${scenario.scenarioName}`);
     fnNames.push(fnName);
-    const browserStepCount:number = scenario.steps.filter((step: StepData):boolean => step.stepType === ScenarioType.BROWSER).length;
+    const browserStepCount: number = scenario.steps.filter(
+      (step: StepData): boolean => step.stepType === ScenarioType.BROWSER
+    ).length;
     scenarioMetadata.push({ index: i + 1, name: scenario.scenarioName, stepCount: browserStepCount });
 
     emit(`async function ${fnName}() {`);
@@ -90,8 +92,8 @@ export function generateScript(scenarios: Scenario[]): string {
     for (let s = 0; s < scenario.steps.length; s++) {
       const step: StepData = scenario.steps[s];
       if (step.stepType !== ScenarioType.BROWSER) continue;
-      const stepName:string = step.stepName || `Step ${s + 1}`;
-      const stepInstanceName:string = getStepInstanceName(step);
+      const stepName: string = step.stepName || `Step ${s + 1}`;
+      const stepInstanceName: string = getStepInstanceName(step);
       const additionalData = step.additionalData as BrowserAdditionalData | undefined;
       if (!additionalData?.instructions) continue;
 
@@ -169,7 +171,6 @@ function main(): void {
       return true;
     });
     const script: string = generateScript(scenarios);
-
 
     const outDir = 'performance_scripts/k6';
     const outPath = `${outDir}/browser-performance-test.js`;

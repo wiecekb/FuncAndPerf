@@ -9,7 +9,7 @@ import {
   emitK6BrowserScenarioSetup,
   emitK6BrowserSharedIterationsOptions,
   emitSimpleScenarioBannerHelper,
-  generateK6ApiStepBlock
+  generateK6ApiStepBlock,
 } from './shared';
 import { generateK6Script } from './generate-k6';
 import { generateScript as generateK6BrowserScript } from './generate-k6-browser';
@@ -60,12 +60,12 @@ function printHelp(): void {
 type GenerationType = 'api' | 'browser' | 'hybrid' | 'all';
 
 function classifyScenario(scenario: Scenario): GenerationType {
-  const hasApiSteps: boolean = scenario.steps.some((step: StepData): boolean =>
-    step.stepType === ScenarioType.CALCULATOR ||
-    step.stepType === ScenarioType.AUTHORIZED_CALCULATOR
+  const hasApiSteps: boolean = scenario.steps.some(
+    (step: StepData): boolean =>
+      step.stepType === ScenarioType.CALCULATOR || step.stepType === ScenarioType.AUTHORIZED_CALCULATOR
   );
-  const hasBrowserSteps: boolean = scenario.steps.some((step: StepData): boolean =>
-    step.stepType === ScenarioType.BROWSER
+  const hasBrowserSteps: boolean = scenario.steps.some(
+    (step: StepData): boolean => step.stepType === ScenarioType.BROWSER
   );
 
   if (hasApiSteps && hasBrowserSteps) {
@@ -105,7 +105,7 @@ function generateHybridScript(scenarios: Scenario[]): string {
 
   emitK6BrowserSharedIterationsOptions(emit, 'hybrid');
 
-  const hybridScenarios: Scenario[] = scenarios.filter(s => classifyScenario(s) === 'hybrid');
+  const hybridScenarios: Scenario[] = scenarios.filter((s) => classifyScenario(s) === 'hybrid');
   const fnNames: string[] = [];
   const scenarioMetadata: { index: number; name: string; stepCount: number }[] = [];
 
@@ -225,15 +225,15 @@ function main(): void {
     }
 
     if (generationType === 'api' || generationType === 'all') {
-      const apiScenarios = scenarios.filter(s => classifyScenario(s) === 'api');
+      const apiScenarios = scenarios.filter((s) => classifyScenario(s) === 'api');
       const apiScript = generateK6Script(apiScenarios);
       const apiPath = `${outDir}/performance-test.js`;
       fs.writeFileSync(apiPath, apiScript, 'utf-8');
       console.log(`✓ Generated API script: ${apiPath}`);
       console.log(`API scenarios available (${apiScenarios.length}):`);
       apiScenarios.forEach((scenario, idx) => {
-        const apiSteps = scenario.steps.filter(step => 
-          step.stepType === ScenarioType.CALCULATOR || step.stepType === ScenarioType.AUTHORIZED_CALCULATOR
+        const apiSteps = scenario.steps.filter(
+          (step) => step.stepType === ScenarioType.CALCULATOR || step.stepType === ScenarioType.AUTHORIZED_CALCULATOR
         ).length;
         console.log(`  [${idx + 1}] "${scenario.scenarioName}" (${apiSteps} API step(s))`);
       });
@@ -241,31 +241,31 @@ function main(): void {
     }
 
     if (generationType === 'browser' || generationType === 'all') {
-      const browserScenarios = scenarios.filter(s => classifyScenario(s) === 'browser');
+      const browserScenarios = scenarios.filter((s) => classifyScenario(s) === 'browser');
       const browserScript = generateK6BrowserScript(browserScenarios);
       const browserPath = `${outDir}/browser-performance-test.js`;
       fs.writeFileSync(browserPath, browserScript, 'utf-8');
       console.log(`✓ Generated browser script: ${browserPath}`);
       console.log(`Browser scenarios available (${browserScenarios.length}):`);
       browserScenarios.forEach((scenario, idx) => {
-        const browserSteps = scenario.steps.filter(step => step.stepType === ScenarioType.BROWSER).length;
+        const browserSteps = scenario.steps.filter((step) => step.stepType === ScenarioType.BROWSER).length;
         console.log(`  [${idx + 1}] "${scenario.scenarioName}" (${browserSteps} browser step(s))`);
       });
       console.log('');
     }
 
     if (generationType === 'hybrid' || generationType === 'all') {
-      const hybridScenarios = scenarios.filter(s => classifyScenario(s) === 'hybrid');
+      const hybridScenarios = scenarios.filter((s) => classifyScenario(s) === 'hybrid');
       const hybridScript = generateHybridScript(hybridScenarios);
       const hybridPath = `${outDir}/hybrid-performance-test.js`;
       fs.writeFileSync(hybridPath, hybridScript, 'utf-8');
       console.log(`✓ Generated hybrid script: ${hybridPath}`);
       console.log(`Hybrid scenarios available (${hybridScenarios.length}):`);
       hybridScenarios.forEach((scenario, idx) => {
-        const apiSteps = scenario.steps.filter(step => 
-          step.stepType === ScenarioType.CALCULATOR || step.stepType === ScenarioType.AUTHORIZED_CALCULATOR
+        const apiSteps = scenario.steps.filter(
+          (step) => step.stepType === ScenarioType.CALCULATOR || step.stepType === ScenarioType.AUTHORIZED_CALCULATOR
         ).length;
-        const browserSteps = scenario.steps.filter(step => step.stepType === ScenarioType.BROWSER).length;
+        const browserSteps = scenario.steps.filter((step) => step.stepType === ScenarioType.BROWSER).length;
         console.log(`  [${idx + 1}] "${scenario.scenarioName}" (${apiSteps} API, ${browserSteps} browser step(s))`);
       });
       console.log('');

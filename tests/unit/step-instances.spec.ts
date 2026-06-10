@@ -39,4 +39,45 @@ test.describe('Step instances', (): void => {
     expect(context.getCurrentHostRef(primary)).toBe('calcApi');
     expect(context.getCurrentHostRef(secondary)).toBe('otherCalcApi');
   });
+
+  test('cleanup close failures do not prevent other contexts from closing', async (): Promise<void> => {
+    let close2Called = false;
+    const mockContext1 = {
+      newPage: async () => ({}) as never,
+      close: async (): Promise<void> => {
+        throw new Error('Forced close failure');
+      },
+    };
+    const mockContext2 = {
+      newPage: async () => ({}) as never,
+      close: async (): Promise<void> => {
+        close2Called = true;
+      },
+    };
+
+    let callCount = 0;
+    const mockBrowser = {
+      newContext: async () => {
+        callCount++;
+        return callCount === 1 ? mockContext1 : mockContext2;
+      },
+    };
+
+    const context = new ScenarioExecutionContext(mockBrowser as never, {} as never);
+
+    await context.getBrowserPage({
+      stepType: ScenarioType.BROWSER,
+      stepInstanceName: 'first',
+      returnCode: 200,
+    });
+    await context.getBrowserPage({
+      stepType: ScenarioType.BROWSER,
+      stepInstanceName: 'second',
+      returnCode: 200,
+    });
+
+    // Powinno wypisać ostrzeżenie w konsoli o błędzie zamknięcia, ale nie rzucać wyjątku i pomyślnie zamknąć drugi kontekst
+    await expect(context.cleanup()).resolves.not.toThrow();
+    expect(close2Called).toBe(true);
+  });
 });

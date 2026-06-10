@@ -83,9 +83,7 @@ test.describe('k6 browser generator helpers', (): void => {
 
   test('selectorToLocatorExpr resolves browser selector reference from config.yaml', (): void => {
     expect(selectorToLocatorExpr('mainPage.heading')).toBe("page.locator('h1')");
-    expect(selectorToLocatorExpr('mainPage.docsLink')).toBe(
-      "page.getByRole('link', { name: 'Docs', exact: false })"
-    );
+    expect(selectorToLocatorExpr('mainPage.docsLink')).toBe("page.getByRole('link', { name: 'Docs', exact: false })");
   });
 
   test('generateInstructionLines emits browser action lines', (): void => {

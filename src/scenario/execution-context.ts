@@ -75,7 +75,11 @@ export class ScenarioExecutionContext {
       if (!runtime.ownsContext) {
         continue;
       }
-      await runtime.context?.close();
+      try {
+        await runtime.context?.close();
+      } catch (error) {
+        console.warn(`Failed to close browser context: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
     this.browserInstances.clear();
     this.stepStates.clear();

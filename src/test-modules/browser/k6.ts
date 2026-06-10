@@ -161,13 +161,16 @@ export class BrowserK6Generator implements K6BrowserStepGenerator {
       : step.hostRef
         ? `HOSTS['${escapeJsString(step.hostRef)}']`
         : 'undefined';
-    lines.push(
-      `      const ${stepBaseUrlVarName} = ${browserBaseUrlExpr};`
-    );
+    lines.push(`      const ${stepBaseUrlVarName} = ${browserBaseUrlExpr};`);
 
     for (let ii = 0; ii < additionalData.instructions.length; ii++) {
       const instruction = additionalData.instructions[ii] as BrowserInstruction;
-      const generated: string[] = generateInstructionLines(instruction, stepName, parseInt(ctx.stepVarName(0)), stepBaseUrlVarName);
+      const generated: string[] = generateInstructionLines(
+        instruction,
+        stepName,
+        parseInt(ctx.stepVarName(0)),
+        stepBaseUrlVarName
+      );
       for (const line of generated) {
         lines.push(`      ${line}`);
       }
