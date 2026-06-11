@@ -13,6 +13,7 @@ Key features:
 - **Attachments** — attach files (e.g. screenshots) to Allure reports from any step
 - **Host Resolution** — resolve host aliases from `config.yaml` via `hostRef`
 - **Performance Generators** — generate k6, k6/browser, and Gatling scripts from the same JSON scenarios
+- **BDD Feature Generator** — generate Cucumber/Gherkin `.feature` files from JSON scenarios
 - **Allure Reporting** — detailed test reports with assertion-level logging
 
 ## Technologies
@@ -48,6 +49,7 @@ FunPerf/
 │   ├── generate-k6.ts        # k6 script generator
 │   ├── generate-k6-browser.ts# k6/browser script generator
 │   ├── generate-gatling.ts   # Gatling simulation generator
+│   ├── generate-cucumber.ts  # Cucumber/Gherkin .feature file generator
 │   ├── parse-test-results.ts # Parse JUnit results for Azure
 │   ├── shared.ts             # Shared generator utilities
 │   └── update-azure-test-results.ts # Update Azure Test Plans
@@ -92,6 +94,7 @@ FunPerf/
 ├── performance_scripts/      # Generated performance test scripts (k6 JS, Gatling TS)
 │   └── gatling/
 │       └── performance-test.gatling.ts
+├── features/                 # Generated Cucumber/Gherkin .feature files
 └── plans/                    # Architecture & design documents
     └── 2026-06-01-funperf-review.md
 ```
@@ -181,6 +184,7 @@ npm run lint && npm run format:check && npx tsc --noEmit
 npm run k6:generate
 npm run k6:browser:generate
 npm run gatling:generate
+npm run cucumber:generate
 ```
 
 ## Running Tests
@@ -390,6 +394,42 @@ The k6/browser generator follows the same registry pattern as the k6 generator:
 - `scripts/generate-k6-browser.ts` — Browser-specific generator script
 
 To add a new step type, implement `K6StepGenerator` and register it in `src/k6/registry.ts`.
+
+### Cucumber / Gherkin (.feature files)
+
+Generates human-readable BDD-style `.feature` files (Gherkin syntax) from the same JSON scenario files. One `.feature` file is produced per JSON file. The generated files are saved in the `features/` directory.
+
+```bash
+# Generate .feature files
+npm run cucumber:generate
+```
+
+**Example output** (from `calculator-demo.json`):
+
+```gherkin
+Feature: Calculator Demo
+  As a system user
+  I want to test the system functionality
+  So that I can verify the system works correctly
+
+  Scenario: Basic addition: 3 + 5 = 8 (jsonPath style)
+    Given field at '$.a' is set to '3'
+    Given field at '$.b' is set to '5'
+    When 'add' operation is performed
+    Then response should have status code 200
+    And field at '$.result' should be equal to '8'
+```
+
+**Supported step types:**
+
+| Step type | Generated Gherkin |
+|---|---|
+| `CALCULATOR` / `AUTHORIZED_CALCULATOR` | `Given parameter/field …`, `When operation is performed`, `Then status code …`, `And field should be …` |
+| `BROWSER` | `When user navigates/clicks/fills/presses …`, `Then URL/element should …`, `When user extracts …` |
+
+Cross-step data references (e.g. `firstAdd.response.$.result`) are automatically recognised and rendered as readable `Given parameter … is set to value from step '…' field '…'` lines.
+
+**Generator source:** [`scripts/generate-cucumber.ts`](scripts/generate-cucumber.ts)
 
 ## Scenario Schema Validation
 
