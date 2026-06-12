@@ -19,17 +19,8 @@ class K6StepGeneratorRegistry {
   get(stepType: string): K6StepGenerator | undefined {
     return this.generators.get(stepType);
   }
-
-  getBrowser(stepType: string): K6BrowserStepGenerator | undefined {
-    return this.browserGenerators.get(stepType);
-  }
-
   has(stepType: string): boolean {
     return this.generators.has(stepType);
-  }
-
-  hasBrowser(stepType: string): boolean {
-    return this.browserGenerators.has(stepType);
   }
 }
 

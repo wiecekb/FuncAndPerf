@@ -6,11 +6,7 @@ export interface K6GeneratorContext {
   declaredAttachments: Set<string>;
 
   stepVarName(stepIndex: number): string;
-
-  /** Tracks the current hostRef from the last step that declared one, for resolution by subsequent steps. */
   currentHostRef?: string;
-
-  /** Tracks current hostRef per stepType + stepInstanceName. */
   stepInstanceHostRefs?: Map<string, string>;
 }
 
@@ -39,8 +35,6 @@ export interface K6StepGenerator {
 
   getEndpoint?(step: StepData): string;
 }
-
-// ── Browser generator interface ──
 
 export interface K6BrowserGeneratorContext {
   declaredAttachments: Set<string>;
