@@ -38,6 +38,19 @@ covering every export in [`src/`](src/) and [`scripts/`](scripts/).
 | `npm run docs:serve` | Serve the generated site locally on `http://localhost:8080` |
 | `npm run docs:check` | CI gate: validate symbols without emitting files |
 
+### GitHub Pages deployment
+
+The [`.github/workflows/docs.yml`](.github/workflows/docs.yml) workflow builds the TypeDoc
+site and deploys it to GitHub Pages on every push to `main`.
+
+**One-time setup** (the workflow cannot enable Pages on its own — GitHub requires this
+manual step, as the default `GITHUB_TOKEN` lacks admin permissions to create the Pages site):
+
+1. Open **Settings → Pages** in the repository.
+2. Under **Build and deployment → Source**, select **GitHub Actions**.
+3. Save. The next workflow run will deploy to
+   `https://<owner>.github.io/<repo>/`.
+
 The generated `docs/` directory is git-ignored; the landing page
 [`docs-index.md`](docs-index.md) is tracked and used by TypeDoc as the project
 overview.
