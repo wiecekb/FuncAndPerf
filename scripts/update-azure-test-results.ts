@@ -1,3 +1,14 @@
+/**
+ * CLI utility publishing parsed test results to Azure DevOps.
+ *
+ * Reads `test-results-parsed.json` produced by `parse-test-results.ts` and
+ * updates the outcome of each mapped Azure test point via the REST API,
+ * authenticated with `AZURE_PAT` and targeted via the
+ * `AZURE_ORGANIZATION`/`AZURE_PROJECT`/`AZURE_PLAN_ID`/`AZURE_SUITE_ID`
+ * environment variables.
+ *
+ * @packageDocumentation
+ */
 import * as fs from 'fs';
 import * as https from 'https';
 

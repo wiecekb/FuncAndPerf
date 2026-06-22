@@ -6,12 +6,7 @@ import { resolveModifyReferences } from '../../scenario/data/resolve';
 import type { AuthorizedCalcValidateResponse } from './validations';
 import { validateAuthorizedCalcApiResponse } from './validations';
 import { AuthorizedCalcResponse, type AuthorizedCalcResponseJson } from './response';
-import {
-  applyAuthorizedCalcJsonPathModifications,
-  applyAuthorizedCalcModifications,
-  splitAuthorizedCalcModifyRequests,
-} from './modifications';
-import { AuthorizedCalcRequestBuilder } from './builder';
+import { applyAuthorizedCalcModifications } from './modifications';
 import { expectWithDescription } from '../../utils/logging-expect';
 import { attachApiRequest, attachApiResponse } from '../../allure/helpers';
 import { AUTHORIZED_CALC_OPERATION_TO_ENDPOINT } from './config';
@@ -31,6 +26,12 @@ type AuthorizedCalcAdditionalData = {
   accessToken?: string;
 };
 
+/**
+ * Legacy no-op retained for backwards compatibility.
+ *
+ * @internal Host-reference state is now tracked on the execution context; this
+ *   function is kept only to preserve the public symbol.
+ */
 export function resetAuthorizedCalcHostRef(): void {}
 
 function resolveAuthorizedCalcBaseUrl(step: StepData, executionContext?: ScenarioExecutionContext): string {
@@ -114,6 +115,23 @@ async function acquireAccessToken(
   );
 }
 
+/**
+ * Executes a single authorized-calculator step against the target service using
+ * Playwright's request context.
+ *
+ * Resolves the target host, builds the payload (applying builder and JSONPath
+ * modifications), acquires an OAuth bearer token (unless one is supplied via
+ * `additionalData.accessToken`), performs the request, attaches request/response
+ * details to Allure and runs the declared validations.
+ *
+ * @param step - Step definition to execute.
+ * @param stepIndex - Index of the step within its scenario.
+ * @param stepName - Human-readable name used in Allure attachments.
+ * @param request - Playwright API request context.
+ * @param executionContext - Optional shared execution context for host-reference tracking.
+ * @returns The built request body and parsed response body.
+ * @throws {Error} When the operation is unsupported, the host reference is missing, or the token endpoint fails.
+ */
 export async function executeAuthorizedCalcStep(
   step: StepData,
   stepIndex: number,
@@ -133,19 +151,8 @@ export async function executeAuthorizedCalcStep(
   const resolvedModifyRequests: ModifyRequest[] = step.modifyRequests
     ? resolveModifyReferences(step.modifyRequests)
     : [];
-  const {
-    builderMods,
-    jsonPathMods,
-  }: {
-    builderMods: ModifyRequest[];
-    jsonPathMods: ModifyRequest[];
-  } = splitAuthorizedCalcModifyRequests(resolvedModifyRequests);
-  const builder: AuthorizedCalcRequestBuilder = new AuthorizedCalcRequestBuilder();
-  applyAuthorizedCalcModifications(builderMods, builder);
-  const requestBody: Record<string, unknown> = builder.build() as Record<string, unknown>;
-  if (jsonPathMods.length > 0) {
-    applyAuthorizedCalcJsonPathModifications(jsonPathMods, requestBody);
-  }
+  const requestBody: Record<string, unknown> = { a: 0, b: 0 };
+  applyAuthorizedCalcModifications(resolvedModifyRequests, requestBody);
 
   const accessToken: string = additionalData.accessToken || (await acquireAccessToken(apiUrl, request));
   const headers: RequestHeadersMap = {

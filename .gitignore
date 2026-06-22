@@ -26,6 +26,9 @@ results/
 # Gatling results
 gatling-results/
 
+# TypeDoc generated HTML output (docs-index.md is tracked, generated site is not)
+/docs/
+
 # IDE
 .vscode/
 .idea/

@@ -1,13 +1,24 @@
-import { loadScenarios, Scenario, type StepData } from '../src/scenario/loader';
+/**
+ * Shared code-generation utilities used by every CLI generator script.
+ *
+ * Provides abstractions over the k6/Gatling/browser generator contracts
+ * (contexts, registries, option types), reusable emit helpers for the
+ * generated performance scripts (runtime helpers, scenario metadata, step
+ * blocks) and data-reference resolution utilities consumed across
+ * `generate-k6*.ts`, `generate-gatling.ts` and `generate-cucumber.ts`.
+ *
+ * @packageDocumentation
+ */
+import { isScenarioFilePath, loadScenariosFromFilePath, Scenario, type StepData } from '../src';
 import * as fs from 'fs';
 import * as path from 'path';
-import { escapeJsString } from '../src/common/codegen';
-import type { BrowserAdditionalData, BrowserInstruction } from '../src/test-modules/browser/types';
+import { escapeJsString } from '../src';
+import type { BrowserAdditionalData, BrowserInstruction } from '../src';
 import { generateInstructionLines as _generateInstructionLines } from '../src/test-modules/browser/generate-instruction-lines';
-import { getStepInstanceKey } from '../src/scenario/instances';
-import type { DefaultPayloadResult, K6GeneratorContext, K6StepGenerator } from '../src/k6/interface';
-import type { ModifyRequest } from '../src/scenario/modify';
-import type { BaseValidation } from '../src/common/validations';
+import { getStepInstanceKey } from '../src';
+import type { DefaultPayloadResult, K6GeneratorContext, K6StepGenerator } from '../src';
+import type { ModifyRequest } from '../src';
+import type { BaseValidation } from '../src';
 
 export interface ScriptGeneratorContext {
   declaredAttachments: Set<string>;
@@ -253,14 +264,14 @@ export function buildDataHandlerMap(steps: StepData[]): Map<string, number> {
 }
 
 export function loadAllScenarios(dirPath: string): Map<string, Scenario[]> {
-  const files: string[] = fs.readdirSync(dirPath).filter((f: string): boolean => f.endsWith('.json'));
+  const files: string[] = fs.readdirSync(dirPath).filter(isScenarioFilePath);
   const fileToScenarios = new Map<string, Scenario[]>();
   const errors: { file: string; error: unknown }[] = [];
 
   for (const file of files) {
     const filePath: string = path.join(dirPath, file);
     try {
-      const scenarios: Scenario[] = loadScenarios(filePath);
+      const scenarios: Scenario[] = loadScenariosFromFilePath(filePath);
       fileToScenarios.set(file, scenarios);
     } catch (e) {
       errors.push({ file, error: e });

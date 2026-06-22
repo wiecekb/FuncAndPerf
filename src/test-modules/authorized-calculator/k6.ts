@@ -6,7 +6,7 @@ import {
   generateModification as generateCommonModification,
   generateValidationCheck,
 } from '../../k6/common';
-import { AUTHORIZED_CALC_OPERATION_TO_ENDPOINT, resolveAuthorizedCalcConfigForStep } from './config';
+import { AUTHORIZED_CALC_OPERATION_TO_ENDPOINT, PARAMETER_TO_JSON_PATH, resolveAuthorizedCalcConfigForStep } from './config';
 import { resolveAuthorizedCalcBaseExpr } from './resolve-host-ref';
 import { getStepInstanceName } from '../../scenario/instances';
 import type { AuthorizedCalcValidateResponse as ValidateResponse } from './validations';
@@ -16,13 +16,28 @@ const VALIDATE_TO_JSON_PATH: Record<string, string> = {
   operation: '$.operation',
 };
 
+/**
+ * k6 generator for authorized-calculator steps.
+ *
+ * Emits the JavaScript fragments that acquire (and cache) an OAuth bearer token
+ * and perform the authorised POST request, including environment-driven token
+ * TTL, refresh skew, cache slot and user-list configuration.
+ */
 export class AuthorizedCalculatorK6Generator implements K6StepGenerator {
   readonly stepType: string;
 
+  /**
+   * @param stepType - Discriminator value (typically {@link ScenarioType.AUTHORIZED_CALCULATOR}).
+   */
   constructor(stepType: string) {
     this.stepType = stepType;
   }
 
+  /**
+   * Returns the full endpoint expression (base + operation path) for the step.
+   *
+   * @param step - Step being generated.
+   */
   getEndpoint(step: StepData): string {
     const operation: string | undefined = step.additionalData?.operation as string | undefined;
     const endpoint: string = AUTHORIZED_CALC_OPERATION_TO_ENDPOINT[operation || ''] || '/authorized/api/calc/add';
@@ -38,7 +53,7 @@ export class AuthorizedCalculatorK6Generator implements K6StepGenerator {
       const rawValue: string = typeof v === 'string' ? v : String(v);
       const numValue: number = parseInt(rawValue, 10);
       return isNaN(numValue) ? `'${escapeJsString(rawValue)}'` : String(numValue);
-    });
+    }, PARAMETER_TO_JSON_PATH);
   }
 
   generateValidationCheck(

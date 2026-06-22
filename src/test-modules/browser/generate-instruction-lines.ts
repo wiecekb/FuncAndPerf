@@ -129,6 +129,17 @@ function generateExtractInstructionLines(instruction: BrowserExtractInstruction)
   }
 }
 
+/**
+ * Translates a single {@link BrowserInstruction} into k6 browser-API code lines,
+ * mirroring the behaviour of {@link executeBrowserStep} for the generated
+ * performance scripts.
+ *
+ * @param instruction - Instruction to translate.
+ * @param stepName
+ * @param stepIndex
+ * @param stepBaseUrlVarName
+ * @returns Generated JavaScript code lines.
+ */
 export function generateInstructionLines(
   instruction: BrowserInstruction,
   stepName: string,

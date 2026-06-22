@@ -31,10 +31,28 @@ function parseReference(value: string): ParsedReference | null {
   return null;
 }
 
+/**
+ * Returns whether `value` matches the inter-step data reference syntax
+ * (`<handler>.<source>` or `<handler>.<source>$.<jsonPath>`).
+ *
+ * @param value - Candidate string to test.
+ */
 export function isReference(value: string): boolean {
   return parseReference(value) !== null;
 }
 
+/**
+ * Resolves an inter-step data reference into the underlying value.
+ *
+ * When `value` is not a reference it is returned unchanged. Otherwise the
+ * referenced source is fetched from {@link stepDataRegistry} and, when a
+ * JSONPath is present, evaluated against it.
+ *
+ * @param value - Reference string (or literal value).
+ * @returns The resolved value, or the input unchanged when it is not a reference.
+ * @throws {Error} When the referenced handler or source is missing, or when the
+ *   JSONPath evaluation fails or resolves to `null`/`undefined`.
+ */
 export function resolveReference(value: string): unknown {
   const reference: ParsedReference | null = parseReference(value);
   if (!reference) {
@@ -81,6 +99,17 @@ export function resolveReference(value: string): unknown {
   return result;
 }
 
+/**
+ * Returns a copy of `modifyRequests` where every reference used as a
+ * `modifiedValue` is resolved against {@link stepDataRegistry}.
+ *
+ * For `modifiedParameter` modifications the resolved value is stringified;
+ * for `jsonPath` modifications the typed value is preserved.
+ *
+ * @typeParam T - Modification type carrying a `modifiedValue` field.
+ * @param modifyRequests - Modifications to resolve.
+ * @returns New array with resolved values; non-reference entries are passed through.
+ */
 export function resolveModifyReferences<T extends { modifiedValue: unknown }>(modifyRequests: T[]): T[] {
   return modifyRequests.map((mod: T): T => {
     if (typeof mod.modifiedValue !== 'string' || !isReference(mod.modifiedValue)) {

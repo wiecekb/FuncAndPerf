@@ -1,8 +1,17 @@
-import { type Scenario, StepData } from '../src/scenario/loader';
-import { gatlingGeneratorRegistry } from '../src/gatling/registry';
-import type { GatlingGeneratorContext, GatlingPayloadResult, GatlingStepGenerator } from '../src/gatling/interface';
-import { config } from '../src/config';
-import { escapeJsString, setNestedValueCode } from '../src/gatling/common';
+/**
+ * CLI generator producing a Gatling Scala simulation for API scenarios.
+ *
+ * Loads scenarios, drives the registered {@link GatlingStepGenerator}
+ * implementations through {@link gatlingGeneratorRegistry} and emits a Scala
+ * simulation to `performance_scripts/gatling/`. Run via `npm run gatling:generate`.
+ *
+ * @packageDocumentation
+ */
+import { type Scenario, StepData } from '../src';
+import { gatlingGeneratorRegistry } from '../src';
+import type { GatlingGeneratorContext, GatlingPayloadResult, GatlingStepGenerator } from '../src';
+import { config } from '../src';
+import { escapeJsString, setNestedValueCode } from '../src';
 import {
   buildDataHandlerMap,
   collectUniquePreambleLines,
@@ -32,6 +41,16 @@ function generateStepDataRead(sessionVarName: string, saveKey: string, jsonPath:
   return `JSON.parse(${sessionVarName}.get('${saveKey}'))${chain}`;
 }
 
+/**
+ * Generates a complete Gatling Scala simulation for the provided scenarios.
+ *
+ * Emits package/imports, protocol setup, per-scenario builder chains and the
+ * simulation class wiring them together, driving every step through the
+ * registered {@link GatlingStepGenerator}.
+ *
+ * @param scenarios - Scenarios to include in the generated simulation.
+ * @returns The generated Scala simulation source as a string.
+ */
 export function generateGatlingSimulation(scenarios: Scenario[]): string {
   const lines: string[] = [];
   const emit: (line?: string) => number = (line: string = ''): number => lines.push(line);

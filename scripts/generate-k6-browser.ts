@@ -1,5 +1,15 @@
-import { type Scenario, type StepData } from '../src/scenario/loader';
-import { ScenarioType } from '../src/scenario/types';
+/**
+ * CLI generator producing a k6 browser performance script for UI scenarios.
+ *
+ * Loads scenarios, keeps only those containing BROWSER steps and emits a
+ * self-contained JavaScript file to
+ * `performance_scripts/k6/browser-performance-test.js`. Run via
+ * `npm run k6:browser:generate`.
+ *
+ * @packageDocumentation
+ */
+import { type Scenario, type StepData } from '../src';
+import { ScenarioType } from '../src';
 import {
   emitBrowserRuntimeHelpers,
   emitBrowserStepInstructions,
@@ -10,12 +20,12 @@ import {
   toValidFunctionName,
   generateScenarioExecutionCode,
 } from './shared';
-import type { BrowserAdditionalData } from '../src/test-modules/browser/types';
-import { escapeJsString } from '../src/common/codegen';
+import type { BrowserAdditionalData } from '../src';
+import { escapeJsString } from '../src';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
-import { getStepInstanceName } from '../src/scenario/instances';
-import { config } from '../src/config';
+import { getStepInstanceName } from '../src';
+import { config } from '../src';
 
 function printHelp(): void {
   console.log('k6/browser generator help');
@@ -46,6 +56,17 @@ function printHelp(): void {
   console.log('  K6_BROWSER_BASE_URL=https://playwright.dev npm run k6:browser:run');
 }
 
+/**
+ * Generates a complete k6 browser performance script for the browser scenarios
+ * among the provided list.
+ *
+ * Emits imports, options, browser runtime helpers, per-scenario functions and
+ * the default export wiring them together, translating every browser
+ * instruction via the registered browser generator.
+ *
+ * @param scenarios - Scenarios to filter and include in the generated script.
+ * @returns The generated k6 JavaScript source as a string.
+ */
 export function generateScript(scenarios: Scenario[]): string {
   const browserScenarios: Scenario[] = scenarios.filter(
     (scenario: Scenario): boolean =>

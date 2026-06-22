@@ -1,3 +1,10 @@
+/**
+ * Gatling-specific re-export of the shared code-generation helpers, plus the
+ * Gatling-native {@link generateGatlingCheck} helper that emits Scala DSL
+ * `check` fragments.
+ *
+ * @packageDocumentation
+ */
 export {
   escapeJsString,
   jsonPathReadCode,
@@ -10,6 +17,17 @@ export {
 import type { ValidationDescriptor } from '../common/codegen';
 import { escapeJsString } from '../common/codegen';
 
+/**
+ * Emits a Gatling Scala `check` fragment for a single response validation.
+ *
+ * Resolves the JSONPath either from `v.jsonPath` directly or via the
+ * `paramToPath` mapping, then renders an equality or substring check using the
+ * Gatling `jsonPath(...).ofString()...` DSL.
+ *
+ * @param v - Validation descriptor.
+ * @param paramToPath - Mapping from parameter name to JSONPath.
+ * @returns Generated Scala check fragment, or `null` when no path can be resolved.
+ */
 export function generateGatlingCheck(v: ValidationDescriptor, paramToPath: Record<string, string>): string | null {
   const jsonPath: string | null = v.jsonPath
     ? v.jsonPath

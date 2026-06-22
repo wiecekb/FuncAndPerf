@@ -1,6 +1,17 @@
+/**
+ * CLI utility parsing Playwright JUnit XML test results.
+ *
+ * Reads the XML report from `test-results/`, correlates each test with its
+ * scenario definition (by name or Azure test case id) and emits a consolidated
+ * JSON summary to `test-results-parsed.json` consumed by
+ * `update-azure-test-results.ts`.
+ *
+ * @packageDocumentation
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseStringPromise } from 'xml2js';
+import { isScenarioFilePath, loadScenariosFromFilePath } from '../src';
 
 const TEST_RESULTS_DIR: string = 'test-results';
 const SCENARIOS_DIR: string = 'tests/scenarios';
@@ -79,15 +90,14 @@ function loadScenarioMappings(): Map<string, number> {
   }
 
   if (fs.existsSync(SCENARIOS_DIR)) {
-    console.log('Loading scenarios from tests/scenarios/*.json');
+    console.log('Loading scenarios from tests/scenarios/*.{json,yaml,yml}');
     const files: string[] = fs.readdirSync(SCENARIOS_DIR);
 
     for (const file of files) {
-      if (file.endsWith('.json')) {
+      if (isScenarioFilePath(file)) {
         const filePath: string = path.join(SCENARIOS_DIR, file);
         try {
-          const content: string = fs.readFileSync(filePath, 'utf-8');
-          const scenarios: ScenarioRaw[] = JSON.parse(content);
+          const scenarios = loadScenariosFromFilePath(filePath).map((scenario) => scenario.rawData);
 
           for (const scenario of scenarios) {
             if (scenario.azureTestCaseId && !mappings.has(scenario.scenarioName)) {

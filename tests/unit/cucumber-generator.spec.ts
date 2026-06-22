@@ -1,12 +1,17 @@
 import { expect, test } from '@playwright/test';
-import { Scenario } from '../../src/scenario/loader';
-import { ScenarioType } from '../../src/scenario/types';
+import { Scenario } from '../../src';
+import { ScenarioType } from '../../src';
 import { escapeGherkinString, toValidFilename, generateFeatureFile } from '../../scripts/generate-cucumber';
 
 test.describe('Cucumber Generator - Unit Tests', (): void => {
   test.describe('toValidFilename', (): void => {
     test('should convert name to valid kebab-case filename', (): void => {
       expect(toValidFilename('My Scenario Name.json')).toBe('my-scenario-name');
+    });
+
+    test('should strip YAML extensions as well', (): void => {
+      expect(toValidFilename('My Scenario Name.yaml')).toBe('my-scenario-name');
+      expect(toValidFilename('My Scenario Name.yml')).toBe('my-scenario-name');
     });
 
     test('should remove special characters and normalize whitespace', (): void => {
@@ -100,6 +105,28 @@ test.describe('Cucumber Generator - Unit Tests', (): void => {
       expect(gherkin).toContain('Scenario: Test Browser Flow');
       expect(gherkin).toContain("When user navigates to '/docs'");
       expect(gherkin).toContain("Then URL should be 'https://example.test/docs'");
+    });
+
+    test('should derive feature name from YAML file name', (): void => {
+      const mockScenarios = [
+        Scenario.fromJson({
+          scenarioName: 'Test Browser Flow',
+          steps: [
+            {
+              stepName: 'Open docs page',
+              stepType: ScenarioType.BROWSER,
+              returnCode: 200,
+              additionalData: {
+                instructions: [],
+              },
+            },
+          ],
+        }),
+      ];
+
+      const gherkin = generateFeatureFile(mockScenarios, 'browser-test.yaml');
+
+      expect(gherkin).toContain('Feature: Browser Test');
     });
   });
 });

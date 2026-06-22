@@ -1,3 +1,16 @@
+/**
+ * Standalone mock server for local development and demo runs of the framework.
+ *
+ * Exposes the calculator (`/api/calc/*`) and authorized-calculator
+ * (`/authorized/api/calc/*` + `/oauth/token`) endpoints backed by an in-memory
+ * user list loaded from `tests/data/authorized-users.txt`. Not part of the
+ * published framework API; run it via `npm run mock:start`.
+ *
+ * Configuration is driven by environment variables:
+ * - `MOCK_PORT` - HTTP port (default `3000`).
+ * - `MOCK_USERS_FILE` - path to the users file.
+ * - `MOCK_TOKEN_TTL_SECONDS` - lifetime of issued OAuth tokens.
+ */
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import { readFileSync, existsSync } from 'fs';

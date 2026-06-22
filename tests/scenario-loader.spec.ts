@@ -1,17 +1,17 @@
 import { APIRequestContext, Browser, Page, test, TestInfo } from '@playwright/test';
-import { hasStepAttachments, loadScenarios, Scenario, StepData, ScenarioData } from '../src/scenario/loader';
+import { hasStepAttachments, loadScenarios, Scenario, StepData, ScenarioData } from '../src';
 import { executeCalcStep, resetCalcHostRef } from '../src/test-modules/calculator/generator';
 import {
   executeAuthorizedCalcStep,
   resetAuthorizedCalcHostRef,
 } from '../src/test-modules/authorized-calculator/generator';
 import { executeBrowserStep, storeBrowserStepDataIfNeeded } from '../src/test-modules/browser/generator';
-import { ScenarioType } from '../src/scenario/types';
-import { attachScenarioInfo } from '../src/allure/helpers';
-import { stepDataRegistry } from '../src/scenario/data/registry';
-import { config } from '../src/config';
-import { ScenarioExecutionContext } from '../src/scenario/execution-context';
-import { getStepInstanceName } from '../src/scenario/instances';
+import { ScenarioType } from '../src';
+import { attachScenarioInfo } from '../src';
+import { stepDataRegistry } from '../src';
+import { config } from '../src';
+import { ScenarioExecutionContext } from '../src';
+import { getStepInstanceName } from '../src';
 
 const scenarios: Scenario[] = loadScenarios();
 
@@ -48,7 +48,8 @@ const stepHandlers: Record<
 test.describe('All Tests', (): void => {
   test.beforeAll(async (): Promise<void> => {
     const scenariosData: ScenarioData[] = scenarios.map((s: Scenario) => s.rawData);
-    await attachScenarioInfo(scenariosData as unknown as Record<string, unknown>[], true);
+    const listFormat = scenarios[0]?.sourceFormat ?? 'json';
+    await attachScenarioInfo(scenariosData as unknown as Record<string, unknown>[], true, listFormat);
   });
 
   scenarios.forEach((scenario: Scenario): void => {
@@ -71,8 +72,12 @@ test.describe('All Tests', (): void => {
         const executionContext = new ScenarioExecutionContext(browser, page);
 
         try {
-          await test.step('Attach Scenario JSON', async (): Promise<void> => {
-            await attachScenarioInfo([scenario.rawData as unknown as Record<string, unknown>], false);
+          await test.step(`Attach Scenario ${scenario.sourceFormat.toUpperCase()}`, async (): Promise<void> => {
+            await attachScenarioInfo(
+              [scenario.rawData as unknown as Record<string, unknown>],
+              false,
+              scenario.sourceFormat
+            );
           });
 
           testInfo.annotations.push(

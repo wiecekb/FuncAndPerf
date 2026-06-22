@@ -40,10 +40,62 @@ test.describe('loadAllScenarios - Error Aggregation', (): void => {
     const result = loadAllScenarios(tempDir);
     expect(result.size).toBe(1);
     expect(result.get('valid.json')?.[0].scenarioName).toBe('Valid Scenario');
+    expect(result.get('valid.json')?.[0].sourceFormat).toBe('json');
+  });
+
+  test('should load valid YAML scenarios successfully', (): void => {
+    const validYaml = `- scenarioName: Valid YAML Scenario
+  steps:
+    - stepName: Step 1
+      stepType: CALCULATOR
+      returnCode: 200
+      additionalData:
+        operation: add
+`;
+    fs.writeFileSync(path.join(tempDir, 'valid.yaml'), validYaml, 'utf-8');
+
+    const result = loadAllScenarios(tempDir);
+    expect(result.size).toBe(1);
+    expect(result.get('valid.yaml')?.[0].scenarioName).toBe('Valid YAML Scenario');
+    expect(result.get('valid.yaml')?.[0].sourceFormat).toBe('yaml');
+  });
+
+  test('should load mixed JSON and YAML scenario files', (): void => {
+    const validJson = JSON.stringify([
+      {
+        scenarioName: 'Valid JSON Scenario',
+        steps: [
+          {
+            stepName: 'Step 1',
+            stepType: 'CALCULATOR',
+            returnCode: 200,
+            additionalData: {
+              operation: 'add',
+            },
+          },
+        ],
+      },
+    ]);
+    const validYaml = `- scenarioName: Valid YAML Scenario
+  steps:
+    - stepName: Step 1
+      stepType: CALCULATOR
+      returnCode: 200
+      additionalData:
+        operation: multiply
+`;
+    fs.writeFileSync(path.join(tempDir, 'valid.json'), validJson, 'utf-8');
+    fs.writeFileSync(path.join(tempDir, 'valid.yml'), validYaml, 'utf-8');
+
+    const result = loadAllScenarios(tempDir);
+    expect(result.size).toBe(2);
+    expect(result.get('valid.json')?.[0].scenarioName).toBe('Valid JSON Scenario');
+    expect(result.get('valid.json')?.[0].sourceFormat).toBe('json');
+    expect(result.get('valid.yml')?.[0].scenarioName).toBe('Valid YAML Scenario');
+    expect(result.get('valid.yml')?.[0].sourceFormat).toBe('yaml');
   });
 
   test('should throw an aggregate error when loading invalid scenarios', (): void => {
-    // 1. Zapisanie poprawnego scenariusza
     const validJson = JSON.stringify([
       {
         scenarioName: 'Valid Scenario',
@@ -60,19 +112,9 @@ test.describe('loadAllScenarios - Error Aggregation', (): void => {
       },
     ]);
     fs.writeFileSync(path.join(tempDir, 'valid.json'), validJson, 'utf-8');
-
-    // 2. Zapisanie pliku z niepoprawnym JSON (błąd składni)
-    fs.writeFileSync(path.join(tempDir, 'invalid-syntax.json'), 'invalid json string {', 'utf-8');
-
-    // 3. Zapisanie pliku niezgodnego ze schematem (brak wymaganej tablicy steps)
-    const invalidSchemaJson = JSON.stringify([
-      {
-        scenarioName: 'Missing Steps',
-      },
-    ]);
-    fs.writeFileSync(path.join(tempDir, 'invalid-schema.json'), invalidSchemaJson, 'utf-8');
-
-    // Sprawdzamy, czy funkcja rzuci zbiorczy błąd z informacją o 2 błędnych plikach
+    fs.writeFileSync(path.join(tempDir, 'invalid-syntax.yaml'), 'steps: [unclosed', 'utf-8');
+    const invalidSchemaYaml = `- scenarioName: Missing Steps`;
+    fs.writeFileSync(path.join(tempDir, 'invalid-schema.yml'), invalidSchemaYaml, 'utf-8');
     expect((): void => {
       loadAllScenarios(tempDir);
     }).toThrow(/Failed to load 2 scenario file\(s\)/);

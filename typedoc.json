@@ -1,0 +1,61 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/index.ts",
+    "scripts/convert-scenario-format.ts",
+    "scripts/generate-cucumber.ts",
+    "scripts/generate-gatling.ts",
+    "scripts/generate-k6-browser.ts",
+    "scripts/generate-k6-unified.ts",
+    "scripts/generate-k6.ts",
+    "scripts/parse-test-results.ts",
+    "scripts/shared.ts",
+    "scripts/update-azure-test-results.ts"
+  ],
+  "entryPointStrategy": "resolve",
+  "tsconfig": "tsconfig.json",
+  "out": "docs",
+  "name": "FuncAndPerf - API Test & Performance Framework",
+  "readme": "docs-index.md",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "plugin": [
+    "typedoc-plugin-missing-exports",
+    "typedoc-plugin-merge-modules"
+  ],
+  "mergeModulesMergeMode": "module",
+  "categorizeByGroup": true,
+  "categoryOrder": [
+    "Modules",
+    "Classes",
+    "Interfaces",
+    "Functions",
+    "Types",
+    "Enums",
+    "*"
+  ],
+  "navigation": {
+    "includeCategories": true,
+    "includeFolders": true
+  },
+  "visibilityFilters": {
+    "protected": true,
+    "private": false,
+    "inherited": true,
+    "external": false
+  },
+  "treatWarningsAsErrors": false,
+  "highlightLanguages": ["mermaid", "typescript", "javascript", "json", "bash", "scala"],
+  "validation": {
+    "invalidLink": true,
+    "notExported": true,
+    "notDocumented": false,
+    "unusedMergeModuleWith": true
+  },
+  "compilerOptions": {
+    "skipLibCheck": true
+  }
+}

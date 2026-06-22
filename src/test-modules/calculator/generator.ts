@@ -6,8 +6,7 @@ import { resolveModifyReferences } from '../../scenario/data/resolve';
 import { CalcResponse } from './response';
 import type { CalcResponseJson } from './types';
 import { type CalcValidateResponse, validateCalcApiResponse } from './validations';
-import { applyCalcJsonPathModifications, applyCalcModifications, splitCalcModifyRequests } from './modifications';
-import { CalcRequestBuilder } from './builder';
+import { applyCalcModifications } from './modifications';
 import { expectWithDescription } from '../../utils/logging-expect';
 import { attachApiRequest, attachApiResponse } from '../../allure/helpers';
 import type { ScenarioExecutionContext } from '../../scenario/execution-context';
@@ -19,6 +18,17 @@ type RequestHeadersMap = Record<string, string>;
 
 export function resetCalcHostRef(): void {}
 
+/**
+ * Resolves the base URL for a calculator step, preferring the step's own
+ * `hostRef` and falling back to the host reference inherited from the execution
+ * context.
+ *
+ * @param step - Step whose base URL is requested.
+ * @param executionContext - Optional shared execution context for host-reference tracking.
+ * @returns Resolved base URL.
+ * @throws {Error} When no `hostRef` can be resolved from the step or inherited state.
+ * @internal
+ */
 function resolveCalcBaseUrl(step: StepData, executionContext?: ScenarioExecutionContext): string {
   if (step.hostRef) {
     executionContext?.setCurrentHostRef(step, step.hostRef);
@@ -47,6 +57,22 @@ function resolveCalcBaseUrl(step: StepData, executionContext?: ScenarioExecution
   );
 }
 
+/**
+ * Executes a single calculator step against the target service using Playwright's
+ * request context.
+ *
+ * Resolves the target host, builds the payload (applying builder and JSONPath
+ * modifications), performs the request, attaches request/response details to
+ * Allure and runs the declared validations.
+ *
+ * @param step - Step definition to execute.
+ * @param stepIndex - Index of the step within its scenario.
+ * @param stepName - Human-readable name used in Allure attachments.
+ * @param request - Playwright API request context.
+ * @param executionContext - Optional shared execution context for host-reference tracking.
+ * @returns The built request body and parsed response body.
+ * @throws {Error} When the operation is unsupported or the host reference is missing.
+ */
 export async function executeCalcStep(
   step: StepData,
   stepIndex: number,
@@ -66,16 +92,8 @@ export async function executeCalcStep(
     ? resolveModifyReferences(step.modifyRequests)
     : [];
 
-  const { builderMods, jsonPathMods } = splitCalcModifyRequests(resolvedModifyRequests);
-
-  const builder = new CalcRequestBuilder();
-  applyCalcModifications(builderMods, builder);
-
-  const requestBody = builder.build() as Record<string, unknown>;
-
-  if (jsonPathMods.length > 0) {
-    applyCalcJsonPathModifications(jsonPathMods, requestBody);
-  }
+  const requestBody: Record<string, unknown> = { a: 0, b: 0 };
+  applyCalcModifications(resolvedModifyRequests, requestBody);
 
   const headers: RequestHeadersMap = {
     'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
 # FunPerf — API Test Automation & Performance Testing Framework
 
-A flexible, scenario-driven test automation framework for both **API** and **frontend/browser** testing. Tests are configured via JSON files, allowing flexible test case management without modifying source code. It includes performance test generators for **k6**, **k6/browser**, and **Gatling**.
+A flexible, scenario-driven test automation framework for both **API** and **frontend/browser** testing. Tests are configured via JSON or YAML files, allowing flexible test case management without modifying source code. It includes performance test generators for **k6**, **k6/browser**, and **Gatling**.
 
 The **Calculator** module serves as a demo/test module. The **Browser** module demonstrates frontend UI testing with Playwright selectors, assertions, and configurable screenshots.
 
@@ -12,8 +12,8 @@ Key features:
 - **Validation API** — validate responses by parameter name or JSON Path, with `equal` or `include` modes
 - **Attachments** — attach files (e.g. screenshots) to Allure reports from any step
 - **Host Resolution** — resolve host aliases from `config.yaml` via `hostRef`
-- **Performance Generators** — generate k6, k6/browser, and Gatling scripts from the same JSON scenarios
-- **BDD Feature Generator** — generate Cucumber/Gherkin `.feature` files from JSON scenarios
+- **Performance Generators** — generate k6, k6/browser, and Gatling scripts from the same JSON/YAML scenarios
+- **BDD Feature Generator** — generate Cucumber/Gherkin `.feature` files from JSON/YAML scenarios
 - **Allure Reporting** — detailed test reports with assertion-level logging
 
 ## Technologies
@@ -26,6 +26,41 @@ Key features:
 - **Allure Report** — test reporting
 - **Azure DevOps** — CI/CD and Test Plans integration
 - **JUnit XML** — reporting format for pipelines
+
+## Documentation
+
+The framework ships with a [TypeDoc](https://typedoc.org/) API reference
+covering every export in [`src/`](src/) and [`scripts/`](scripts/).
+
+| Command | Description |
+|---------|-------------|
+| `npm run docs` | Build the HTML reference into `docs/` |
+| `npm run docs:serve` | Serve the generated site locally on `http://localhost:8080` |
+| `npm run docs:check` | CI gate: validate symbols without emitting files |
+
+The generated `docs/` directory is git-ignored; the landing page
+[`docs-index.md`](docs-index.md) is tracked and used by TypeDoc as the project
+overview.
+
+### Published reference (GitHub Pages)
+
+Every push to `main` triggers the
+[`docs.yml`](.github/workflows/docs.yml) workflow, which builds the TypeDoc site
+and deploys it to GitHub Pages. Once enabled, the live reference is available at:
+
+```
+https://<owner>.github.io/<repo>/
+```
+
+**One-time setup** (repository administrator):
+
+1. Go to **Settings → Pages** in the GitHub repository.
+2. Under **Build and deployment → Source**, select **GitHub Actions**.
+3. (Optional) Trigger the workflow manually via the **Actions** tab using
+   *Run workflow* on the `Build & Deploy TypeDoc to GitHub Pages` workflow.
+
+The site rebuilds automatically on every change to `main`; no manual steps are
+required afterwards.
 
 ## Project Structure
 
@@ -63,7 +98,7 @@ FunPerf/
 │   │   ├── data/             # Step data registry & cross-step reference resolution
 │   │   │   ├── registry.ts   # In-memory store for step request/response data
 │   │   │   └── resolve.ts    # Reference parser & resolver (e.g. stepName.response.$.path)
-│   │   ├── loader.ts         # JSON file/string parsing, AJV schema validation, Scenario model
+│   │   ├── loader.ts         # JSON/YAML file parsing, AJV schema validation, Scenario model
 │   │   ├── instances.ts      # Step instance name/key utilities for multi-instance steps
 │   │   ├── execution-context.ts # Runtime context: browser pages, hostRef state per instance
 │   │   ├── modify.ts         # Modify request types & JSON path setter utility
@@ -85,7 +120,7 @@ FunPerf/
 │   └── utils/                # Utilities
 │       └── logging-expect.ts # Allure-aware Playwright expect wrapper with JSON attachments
 ├── tests/                    # Test files
-│   ├── scenarios/            # JSON scenario files (6 demo scenarios)
+│   ├── scenarios/            # JSON/YAML scenario files (demo scenarios)
 │   ├── data/                 # Test data files (e.g. authorized-users.txt)
 │   ├── unit/                 # Unit tests
 │   │   ├── resolve-references.spec.ts  # Step data registry & reference resolution
@@ -126,11 +161,13 @@ hosts:
   calcApi: http://localhost:3000
 
 test:
-  file_path: tests/scenarios/calculator-demo.json
+  file_path: tests/scenarios/calculator-demo.yaml
   timeout_ms: 30000
 ```
 
 Environment variables can override YAML values (e.g. `calculator.url`, `TEST_FILE_PATH`, `TEST_TIMEOUT_MS`).
+
+`test.file_path` and `TEST_FILE_PATH` can point to either `.json`, `.yaml`, or `.yml` scenario files.
 
 Step-level host selection:
 
@@ -268,7 +305,7 @@ TEST_CASE_STRING='[{"scenarioName":"Test 1","steps":[]}]' npm run test:ci
 
 ## Performance Testing
 
-The project includes performance test generators for both **k6**, **k6/browser**, and **Gatling**. All generators read the same JSON scenario files from `tests/scenarios/` and produce executable performance test scripts.
+The project includes performance test generators for both **k6**, **k6/browser**, and **Gatling**. All generators read the same scenario files from `tests/scenarios/` (`.json`, `.yaml`, `.yml`) and produce executable performance test scripts.
 
 ### Authorized Calculator Demo
 
@@ -397,14 +434,14 @@ To add a new step type, implement `K6StepGenerator` and register it in `src/k6/r
 
 ### Cucumber / Gherkin (.feature files)
 
-Generates human-readable BDD-style `.feature` files (Gherkin syntax) from the same JSON scenario files. One `.feature` file is produced per JSON file. The generated files are saved in the `features/` directory.
+Generates human-readable BDD-style `.feature` files (Gherkin syntax) from the same scenario files. One `.feature` file is produced per scenario file. The generated files are saved in the `features/` directory.
 
 ```bash
 # Generate .feature files
 npm run cucumber:generate
 ```
 
-**Example output** (from `calculator-demo.json`):
+**Example output** (from `calculator-demo.yaml`):
 
 ```gherkin
 Feature: Calculator Demo
@@ -431,9 +468,20 @@ Cross-step data references (e.g. `firstAdd.response.$.result`) are automatically
 
 **Generator source:** [`scripts/generate-cucumber.ts`](scripts/generate-cucumber.ts)
 
+### Scenario Format Conversion
+
+You can convert scenario files between JSON and YAML with:
+
+```bash
+npm run scenario:convert -- --input tests/scenarios/calculator-demo.yaml --to json
+npm run scenario:convert -- --input tests/scenarios/browser-demo.json --to yaml
+```
+
+By default, the converter writes a sibling file with the target extension. Use `--output <path>` to control the destination path explicitly.
+
 ## Scenario Schema Validation
 
-Every scenario JSON file is validated against a JSON Schema before execution.
+Every scenario file (`.json`, `.yaml`, `.yml`) is parsed into the same in-memory structure and then validated against a JSON Schema before execution.
 
 - **Main schema**: [`schemas/scenario-schema.json`](schemas/scenario-schema.json) — defines the `Scenario` and `Step` structures
 - **Step-type sub-schemas**: referenced via `$ref` from each test module's `step-*.json` file:
@@ -618,7 +666,7 @@ These can be referenced as `dataHandler.response.$.extracted.docsUrl` or `dataHa
 
 ### StepData Interface
 
-Each step in a scenario JSON file maps to the `StepData` type defined in [`src/scenario/loader.ts`](src/scenario/loader.ts:16):
+Each step in a scenario file maps to the `StepData` type defined in [`src/scenario/loader.ts`](src/scenario/loader.ts:16):
 
 | Property | Type | Description |
 |---|---|---|
@@ -644,7 +692,7 @@ To add a new API step type to the framework:
 5. Add your step type to `ScenarioType` enum in `src/scenario/types.ts`
 6. Update `src/scenario/loader.ts` to use your builder/response types
 7. Create a JSON schema in `schemas/` and register it in `src/scenario/loader.ts`
-8. Add scenario JSON files in `tests/scenarios/`
+8. Add scenario files (`.json` or `.yaml`) in `tests/scenarios/`
 
 ## Helper Scripts
 

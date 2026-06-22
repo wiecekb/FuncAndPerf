@@ -137,13 +137,29 @@ function generateInstructionLines(
   return lines;
 }
 
+/**
+ * k6 browser generator for browser steps.
+ *
+ * Emits the JavaScript fragments that resolve the page for the step instance,
+ * compute the base URL and translate every {@link BrowserInstruction} into k6
+ * browser-API calls using {@link selectorToLocatorExpr}.
+ */
 export class BrowserK6Generator implements K6BrowserStepGenerator {
   readonly stepType: string;
 
+  /**
+   * @param stepType - Discriminator value (typically {@link ScenarioType.BROWSER}).
+   */
   constructor(stepType: string) {
     this.stepType = stepType;
   }
 
+  /**
+   * Emits the k6 browser instructions performing the UI actions for the step.
+   *
+   * @param step - Step being generated.
+   * @param ctx - Active generation context.
+   */
   generateBrowserInstructions(step: StepData, ctx: K6BrowserGeneratorContext): string[] {
     const additionalData = step.additionalData as BrowserAdditionalData | undefined;
     if (!additionalData?.instructions) return [];

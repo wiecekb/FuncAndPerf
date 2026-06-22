@@ -5,6 +5,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Returns whether `value` is a valid {@link BrowserSelector}.
+ *
+ * @param value - Candidate value to test.
+ */
 export function isBrowserSelector(value: unknown): value is BrowserSelector {
   if (!isRecord(value)) {
     return false;
@@ -25,6 +30,14 @@ export function isBrowserSelector(value: unknown): value is BrowserSelector {
   }
 }
 
+/**
+ * Resolves a dotted selector reference into a concrete {@link BrowserSelector}
+ * by walking the {@link AppConfig.browser.selectors} tree.
+ *
+ * @param reference - Dotted path (e.g. `login.usernameInput`).
+ * @returns The resolved selector.
+ * @throws {Error} When the reference is empty, not found, or does not point to a valid selector.
+ */
 export function resolveBrowserSelectorReference(reference: string): BrowserSelector {
   const parts: string[] = reference.split('.').filter(Boolean);
   if (parts.length === 0) {
@@ -46,6 +59,13 @@ export function resolveBrowserSelectorReference(reference: string): BrowserSelec
   return current;
 }
 
+/**
+ * Resolves a {@link BrowserSelectorInput} into a concrete
+ * {@link BrowserSelector}, dereferencing named references when needed.
+ *
+ * @param selector - Inline selector or named reference.
+ * @returns The resolved selector.
+ */
 export function resolveBrowserSelector(selector: BrowserSelectorInput): BrowserSelector {
   return typeof selector === 'string' ? resolveBrowserSelectorReference(selector) : selector;
 }

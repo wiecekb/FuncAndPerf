@@ -23,13 +23,30 @@ const AUTHORIZED_USERNAME_SESSION_KEY: string = 'authorizedCalcUsername';
 const AUTHORIZED_PASSWORD_SESSION_KEY: string = 'authorizedCalcPassword';
 const AUTHORIZED_USER_SLOT_SESSION_KEY: string = 'authorizedCalcUserSlot';
 
+/**
+ * Gatling generator for authorized-calculator steps.
+ *
+ * Emits Scala DSL fragments that acquire (and cache) an OAuth bearer token and
+ * perform the authorised POST request. The variant
+ * {@link AuthorizedCalculatorGatlingGenerator.generateHttpCallWithChecks}
+ * additionally attaches response checks to the business request inside a
+ * `.resources(...)` block.
+ */
 export class AuthorizedCalculatorGatlingGenerator implements GatlingStepGenerator {
   readonly stepType: string;
 
+  /**
+   * @param stepType - Discriminator value (typically `AUTHORIZED_CALCULATOR`).
+   */
   constructor(stepType: string) {
     this.stepType = stepType;
   }
 
+  /**
+   * Returns the full endpoint expression (base + operation path) for the step.
+   *
+   * @param step - Step being generated.
+   */
   getEndpoint(step: StepData): string {
     const operation: string | undefined = step.additionalData?.operation as string | undefined;
     const endpoint: string = AUTHORIZED_CALC_OPERATION_TO_ENDPOINT[operation || ''] || '/authorized/api/calc/add';

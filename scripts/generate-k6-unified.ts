@@ -1,5 +1,16 @@
-import { type Scenario, type StepData } from '../src/scenario/loader';
-import { ScenarioType } from '../src/scenario/types';
+/**
+ * Unified CLI generator for k6 scripts supporting api, browser and hybrid modes.
+ *
+ * Selects the generation mode via the `--type` flag (`api` | `browser` |
+ * `hybrid` | `all`) and dispatches to the k6 API generator and/or the k6
+ * browser generator, writing the resulting scripts under
+ * `performance_scripts/k6/`. Run via `npm run k6:generate` (or its
+ * `:api`/`:browser`/`:hybrid`/`:all` variants).
+ *
+ * @packageDocumentation
+ */
+import { type Scenario, type StepData } from '../src';
+import { ScenarioType } from '../src';
 import {
   loadAllScenarios,
   toValidFunctionName,
@@ -15,12 +26,12 @@ import { generateK6Script } from './generate-k6';
 import { generateScript as generateK6BrowserScript } from './generate-k6-browser';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
-import { k6GeneratorRegistry } from '../src/k6/registry';
-import type { K6GeneratorContext, K6StepGenerator } from '../src/k6/interface';
-import { config } from '../src/config';
-import { escapeJsString, setNestedValueCode } from '../src/k6/common';
-import { getStepInstanceName } from '../src/scenario/instances';
-import type { BrowserAdditionalData } from '../src/test-modules/browser/types';
+import { k6GeneratorRegistry } from '../src';
+import type { K6GeneratorContext, K6StepGenerator } from '../src';
+import { config } from '../src';
+import { escapeJsString, setNestedValueCode } from '../src';
+import { getStepInstanceName } from '../src';
+import type { BrowserAdditionalData } from '../src';
 
 function printHelp(): void {
   console.log('k6 unified generator help');

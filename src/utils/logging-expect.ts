@@ -1,6 +1,13 @@
 import { expect as pwExpect, test } from '@playwright/test';
 import { attachment } from 'allure-js-commons';
 
+/**
+ * Playwright `expect` wrapper that records every assertion as a described
+ * Allure step and attaches a JSON details payload (actual/expected values,
+ * assertion type, timestamp).
+ *
+ * Obtain an instance via {@link expectWithDescription}.
+ */
 class LoggingExpect {
   private readonly actual: unknown;
   private readonly stepDescription?: string;
@@ -144,6 +151,14 @@ class LoggingExpect {
   }
 }
 
+/**
+ * Creates a {@link LoggingExpect} for `actual`, anchoring subsequent assertions
+ * to a human-readable `description` used as the Allure step name.
+ *
+ * @param description - Human-readable description of the assertion.
+ * @param actual - Value being asserted.
+ * @returns A {@link LoggingExpect} instance bound to `actual`.
+ */
 export function expectWithDescription(description: string, actual: unknown): LoggingExpect {
   return new LoggingExpect(actual, description);
 }

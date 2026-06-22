@@ -103,6 +103,21 @@ async function captureAndAttachScreenshot(page: Page, title: string, fullPage: b
   await attachScreenshot(title, screenshot);
 }
 
+/**
+ * Executes a single browser step using Playwright: resolves the target page,
+ * resolves any `${ctx.*}` references, performs every declared instruction
+ * (actions, assertions, extracts) and captures screenshots according to the
+ * step's screenshot configuration.
+ *
+ * @param step - Step definition to execute.
+ * @param stepIndex - Index of the step within its scenario.
+ * @param stepName - Human-readable name used in Allure attachments.
+ * @param _request - Unused Playwright API request context (browser steps use a page).
+ * @param page - Optional Playwright page; when absent the page is resolved from the execution context.
+ * @param executionContext - Optional shared execution context.
+ * @returns The built request body (initial inputs) and response body (extracted values).
+ * @throws {Error} When a referenced selector or ctx value cannot be resolved.
+ */
 export async function executeBrowserStep(
   step: StepData,
   stepIndex: number,
@@ -309,6 +324,13 @@ export async function executeBrowserStep(
   };
 }
 
+/**
+ * Stores the request/response bodies of a browser step under its
+ * {@link StepData.dataHandlerName} so later steps can reference them.
+ *
+ * @param step - Step whose result should be stored.
+ * @param result - Request body (initial inputs) and response body (extracted values).
+ */
 export function storeBrowserStepDataIfNeeded(
   step: StepData,
   result: { requestBody: Record<string, unknown>; responseBody: Record<string, unknown> }

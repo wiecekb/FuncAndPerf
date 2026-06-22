@@ -1,10 +1,19 @@
-import { type Scenario, type StepData } from '../src/scenario/loader';
-import { ScenarioType } from '../src/scenario/types';
+/**
+ * CLI generator producing Cucumber/Gherkin `.feature` files from scenarios.
+ *
+ * Loads every JSON/YAML scenario from `tests/scenarios`, renders human-readable
+ * Gherkin steps for each and writes one feature file per scenario file to the
+ * `features/` directory. Run via `npm run cucumber:generate`.
+ *
+ * @packageDocumentation
+ */
+import { type Scenario, type StepData } from '../src';
+import { ScenarioType } from '../src';
 import { loadAllScenarios } from './shared';
 import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
-import type { BrowserAdditionalData, BrowserInstruction } from '../src/test-modules/browser/types';
+import type { BrowserAdditionalData, BrowserInstruction } from '../src';
 
 function printHelp(): void {
   console.log('Cucumber/Gherkin generator help');
@@ -18,16 +27,20 @@ function printHelp(): void {
   console.log('  --help, -h                       Show this help');
   console.log('');
   console.log('What this generator does:');
-  console.log('  - loads all JSON scenarios from tests/scenarios');
+  console.log('  - loads all JSON/YAML scenarios from tests/scenarios');
   console.log('  - generates human-readable Cucumber/Gherkin .feature files');
-  console.log('  - one feature file per JSON file');
+  console.log('  - one feature file per scenario file');
   console.log('  - saves files to features/ directory');
+}
+
+function stripScenarioFileExtension(name: string): string {
+  return name.replace(/\.(json|ya?ml)$/i, '');
 }
 
 export function toValidFilename(name: string): string {
   return name
     .toLowerCase()
-    .replace(/\.json$/, '')
+    .replace(/\.(json|ya?ml)$/i, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, '-')
     .trim();
@@ -242,11 +255,18 @@ function generateScenarioLines(scenario: Scenario): string[] {
   return lines;
 }
 
+/**
+ * Generates the Gherkin source for a single `.feature` file from the provided
+ * scenarios.
+ *
+ * @param scenarios - Scenarios belonging to the feature file.
+ * @param fileName - Base file name (without extension) used as the feature name.
+ * @returns The generated Gherkin source as a string.
+ */
 export function generateFeatureFile(scenarios: Scenario[], fileName: string): string {
   const lines: string[] = [];
 
-  const featureName: string = fileName
-    .replace('.json', '')
+  const featureName: string = stripScenarioFileExtension(fileName)
     .replace(/-/g, ' ')
     .split(' ')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))

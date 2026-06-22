@@ -20,7 +20,7 @@ browser:
         value: h1
 
 test:
-  file_path: tests/scenarios/calculator-demo.json
+  file_path: tests/scenarios/calculator-demo.yaml
   timeout_ms: 30000
 
 authorized_calculator:

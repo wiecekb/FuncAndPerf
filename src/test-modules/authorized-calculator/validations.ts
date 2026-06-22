@@ -1,11 +1,27 @@
 import { AuthorizedCalcResponse } from './response';
 import { assertValidation, type BaseValidation, validateApiResponse } from '../../common/validations';
 
+/**
+ * Validation descriptor for the authorized calculator, constraining
+ * `validatedParameter` to the fields exposed by {@link AuthorizedCalcResponse}.
+ */
 export type AuthorizedCalcValidateResponse = BaseValidation & {
+  /** Field of the response that can be validated. */
   validatedParameter?: 'result' | 'operation';
+  /** Expected value, compared as a string (or parsed integer for `result`). */
   validatedParameterValue: string;
 };
 
+/**
+ * Runs all declared validations against an authorized-calculator response.
+ *
+ * Delegates to {@link validateApiResponse} with a module-specific parameter
+ * resolver that supports `result` and `operation`.
+ *
+ * @param validateResponse - Validation entries declared on the step.
+ * @param apiResponse - Parsed response wrapper to validate.
+ * @throws {Error} When a validation declares an unsupported `validatedParameter`.
+ */
 export async function validateAuthorizedCalcApiResponse(
   validateResponse: AuthorizedCalcValidateResponse[],
   apiResponse: AuthorizedCalcResponse

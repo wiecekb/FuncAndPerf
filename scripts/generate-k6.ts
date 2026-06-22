@@ -1,8 +1,18 @@
-import { type Scenario, type StepData } from '../src/scenario/loader';
-import { k6GeneratorRegistry } from '../src/k6/registry';
-import type { K6GeneratorContext, K6StepGenerator } from '../src/k6/interface';
-import { config } from '../src/config';
-import { escapeJsString } from '../src/k6/common';
+/**
+ * CLI generator producing a k6 performance script for API-only scenarios.
+ *
+ * Loads scenarios, drives the registered {@link K6StepGenerator} implementations
+ * through {@link k6GeneratorRegistry} and emits a self-contained JavaScript
+ * file to `performance_scripts/k6/performance-test.js`. Run via
+ * `npm run k6:generate` (delegates to `generate-k6-unified.ts`) or directly.
+ *
+ * @packageDocumentation
+ */
+import { type Scenario, type StepData } from '../src';
+import { k6GeneratorRegistry } from '../src';
+import type { K6GeneratorContext, K6StepGenerator } from '../src';
+import { config } from '../src';
+import { escapeJsString } from '../src';
 import {
   collectUniquePreambleLines,
   emitPreambleLines,
@@ -11,6 +21,16 @@ import {
   generateK6ApiStepBlock,
 } from './shared';
 
+/**
+ * Generates a complete k6 API performance script for the provided scenarios.
+ *
+ * Emits imports, options, runtime helpers, per-scenario functions and the
+ * default export wiring them together, driving every step through the
+ * registered {@link K6StepGenerator}.
+ *
+ * @param scenarios - Scenarios to include in the generated script.
+ * @returns The generated k6 JavaScript source as a string.
+ */
 export function generateK6Script(scenarios: Scenario[]): string {
   const lines: string[] = [];
   const emit: (line?: string) => number = (line: string = ''): number => lines.push(line);
