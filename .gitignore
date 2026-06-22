@@ -15,6 +15,7 @@ target/
 allure-results/
 allure-report/
 playwright-report/
+playwright-report-e2e/
 test-results/
 test-results-parsed.json
 test-scenarios-temp.json

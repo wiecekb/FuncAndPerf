@@ -724,3 +724,107 @@ npx tsx scripts/update-azure-test-results.ts
 ```
 
 Updates test results in Azure DevOps Test Plans based on parsed results.
+## Classic Playwright Browser Tests
+
+Besides JSON/YAML-driven scenarios, the project also supports classic Playwright frontend tests written directly in TypeScript.
+
+These tests live in `tests/e2e/` and use a dedicated config file: `playwright.e2e.config.ts`. They are intentionally isolated from the scenario runner, so `npm test` does not execute them.
+
+### Run classic frontend tests
+
+```bash
+npm run test:e2e
+```
+
+Run only Chromium:
+
+```bash
+npm run test:e2e:chromium
+```
+
+Open Playwright UI mode:
+
+```bash
+npm run test:e2e:ui
+```
+
+Debug mode:
+
+```bash
+npm run test:e2e:debug
+```
+
+Run with visible browser and generate Allure report (full pipeline: clean → headed tests → generate → open):
+
+```bash
+npm run test:e2e:allure
+```
+
+This one-liner cleans `allure-results`, `allure-report`, `playwright-report-e2e`, runs the Chromium e2e tests with `--headed`, generates the Allure report and opens it in your browser.
+
+### Structure
+
+```text
+tests/e2e/
+├── fixtures.ts
+├── pages/
+│   ├── base.page.ts
+│   └── playwright-docs.page.ts
+├── homepage.spec.ts
+└── docs.spec.ts
+```
+
+The shared fixture in `tests/e2e/fixtures.ts` exposes:
+
+- `frontendBaseUrl` resolved from `config.hosts.frontendMain` in `config.yaml`
+- `loggedExpect`, backed by the framework assertion logger
+- `captureScreenshot`, helper that attaches a page screenshot to Allure when the strategy is active
+
+Use this import style in classic frontend tests:
+
+```ts
+import { test, expect } from './fixtures';
+```
+
+This keeps regular Playwright tests independent from scenario YAML/JSON while reusing the framework's existing configuration and Allure reporting helpers.
+
+### Conditional screenshots
+
+Screenshots are captured only when they are useful for debugging — never during quiet headless CI runs.
+
+The strategy is resolved, in priority order, from:
+
+1. `E2E_SCREENSHOTS` environment variable (explicit override).
+2. Playwright `--debug` / `--headed` flags (auto-detected).
+3. Default: disabled.
+
+| Run mode                                            | Screenshots |
+|----------------------------------------------------|-------------|
+| `npm run test:e2e:chromium` (headless)            | disabled    |
+| `npm run test:e2e:headed` (`--headed`)            | enabled     |
+| `npm run test:e2e:debug` (`--debug`)              | enabled     |
+| `E2E_SCREENSHOTS=on npm run test:e2e:chromium`    | enabled     |
+| `E2E_SCREENSHOTS=off npm run test:e2e:headed`     | disabled    |
+
+Accepted values for `E2E_SCREENSHOTS`: `on` / `off`, `always` / `never`, `1` / `0`, `true` / `false`.
+
+Capture a screenshot from any classic test:
+
+```ts
+test('my test', async ({ page, captureScreenshot }) => {
+  await page.goto('/');
+  await captureScreenshot('After navigation');
+  await captureScreenshot('After action', false); // second arg = fullPage
+});
+```
+
+When the strategy is disabled, `captureScreenshot` is a no-op, so the same test code runs unchanged in both modes.
+
+### Allure report
+
+Classic E2E tests share the same `allure-results/` directory as scenario tests, so a single Allure report contains both when executed together. To get a clean report containing only classic E2E results:
+
+```bash
+rm -rf allure-results allure-report && npm run test:e2e:chromium && npm run allure:report
+```
+
